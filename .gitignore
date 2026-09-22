@@ -1,0 +1,54 @@
+# ---- R ----
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+.Rapp.history
+*.Rcheck/
+.httr-oauth
+rsconnect/
+renv/library/
+renv/staging/
+
+# ---- Datos (no se suben: vienen de Kaggle) ----
+stores/raw/*
+!stores/raw/.gitkeep
+stores/procesados/*
+!stores/procesados/.gitkeep
+# Los .rds de tuning pesan mucho; se regeneran corriendo los scripts
+stores/resultados/*.rds
+
+# ---- Credenciales ----
+kaggle.json
+.env
+*.pem
+
+# ---- Claude Code ----
+.claude/
+.claude/settings.local.json
+.claude/*.local.*
+CLAUDE.local.md
+
+# ---- LaTeX (si arman las slides en Beamer) ----
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+*.vrb
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# ---- Python (por si alguien lo usa) ----
+__pycache__/
+.venv/
+.ipynb_checkpoints/
+
+# ---- Sistema operativo / editores ----
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.zip

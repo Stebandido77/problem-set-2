@@ -237,3 +237,59 @@ guardar_submission <- function(ids, clases, algoritmo, especificacion, f1_cv,
   message("Submission guardada: ", nombre_archivo)
   invisible(file.path(carpeta, nombre_archivo))
 }
+
+# ---- Gráficos y tablas del mejor modelo ----------------------------------------
+# Se usan dos veces en 10_mejor_modelo.R: para el mejor candidato de R (desde su
+# .rds) y para el mejor del nivel 7 (desde las tablas que exporta Python).
+
+# Importancia de las 15 variables más importantes.
+# Argumentos: importancia = tibble (variable, importancia) normalizada a máximo 1;
+#   nombre = candidato, para el subtítulo.
+# Devuelve: objeto ggplot.
+graficar_importancia <- function(importancia, nombre) {
+  importancia |>
+    slice_max(importancia, n = 15) |>
+    mutate(variable = fct_reorder(variable, importancia)) |>
+    ggplot(aes(importancia, variable)) +
+    geom_col(fill = "#2a78d6", width = 0.7) +
+    labs(
+      title = "¿Qué predice la pobreza?",
+      subtitle = paste0(nombre, " | importancia relativa (máximo = 1)"),
+      x = "Importancia relativa", y = NULL
+    )
+}
+
+# Trade-off entre filtración y subcobertura a lo largo del umbral.
+# Argumentos: curva = curva de umbral OOF (umbral, f1, filtracion, subcobertura);
+#   umbral_elegido = umbral elegido (línea punteada).
+# Devuelve: objeto ggplot.
+graficar_tradeoff <- function(curva, umbral_elegido) {
+  curva |>
+    select(umbral, F1 = f1, Filtración = filtracion, Subcobertura = subcobertura) |>
+    pivot_longer(-umbral, names_to = "metrica", values_to = "valor") |>
+    ggplot(aes(umbral, valor, color = metrica)) +
+    geom_line(linewidth = 1) +
+    geom_vline(xintercept = umbral_elegido, linetype = "dashed", color = "#52514e") +
+    scale_color_manual(values = c(F1 = "#2a78d6", Filtración = "#eb6834", Subcobertura = "#1baf7a")) +
+    scale_y_continuous(labels = scales::percent) +
+    labs(
+      title = "Mover el umbral cambia a quién se deja por fuera",
+      subtitle = "Predicciones fuera de fold; la línea punteada es el umbral que maximiza F1",
+      x = "Umbral de probabilidad para clasificar como pobre",
+      y = NULL, color = NULL
+    )
+}
+
+# Escenarios de política: máximo F1 frente a cubrir al menos 90% de los pobres
+# (un hacedor de política que tolera más filtración a cambio de cobertura).
+# Argumentos: curva = curva de umbral OOF; umbral_elegido = umbral elegido.
+# Devuelve: tibble con una fila por criterio.
+tabla_escenarios_politica <- function(curva, umbral_elegido) {
+  bind_rows(
+    curva |> slice_min(abs(umbral - umbral_elegido), n = 1, with_ties = FALSE) |>
+      mutate(criterio = "Máximo F1"),
+    curva |> filter(recall >= 0.90) |> slice_max(umbral, n = 1, with_ties = FALSE) |>
+      mutate(criterio = "Cobertura >= 90%")
+  ) |>
+    select(criterio, umbral, f1, precision, recall, filtracion, subcobertura)
+}

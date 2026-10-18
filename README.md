@@ -35,21 +35,30 @@ uno que prediga bien **y** que se pueda aplicar con una encuesta corta y barata.
 │   ├── 08_leaderboard.R              # Leaderboard interno, escalera, top 3, bitácora
 │   ├── 09_comparacion.R              # Deck compare: algoritmos en cancha nivelada
 │   ├── 10_mejor_modelo.R             # Deck best: importancia, trade-off de política
+│   ├── 11_exportar_python.R          # Nivel 7: bases, partición y folds a parquet
+│   ├── 12_diagnostico_nivel7.R       # Nivel 7: variables disponibles y errores de n6
 │   ├── main.R                        # Corre todo en orden
 │   └── funciones/                    # Funciones reutilizables
 │       ├── limpieza.R                # Variables de hogar/personas y niveles
 │       ├── modelado.R                # Receta, algoritmos, evaluar_candidato()
 │       ├── escalera.R                # Reglas naive, stacking, leaderboard, top 3
 │       └── utilidades.R              # Métricas, figuras, validación de submissions
+├── python/                           # Nivel 7 (Python 3.12, ver sección propia)
+│   ├── requirements.txt              # Versiones exactas del entorno
+│   ├── configuracion.py              # Semilla, rutas, parámetros de n6_lightgbm
+│   ├── etapa1_ablacion.py ... etapa4_leaderboard.py
+│   ├── funciones/                    # Variables v2, OOF anidada, auxiliares, métricas
+│   └── tests/                        # Partición igual a R y auxiliares sin fuga
 ├── stores/
 │   ├── raw/                          # CSV de Kaggle (no se suben)
 │   ├── procesados/                   # Bases limpias y partición (no se suben)
 │   ├── modelos/                      # Un .rds por candidato (no se suben)
 │   ├── logs/corrida.log              # Hora y RAM por candidato y etapa (no se sube)
-│   ├── resultados/                   # leaderboard_interno.csv
+│   ├── resultados/                   # leaderboard_interno.csv y leaderboard_nivel7.csv
 │   └── submissions/
 │       ├── candidatos/               # Un CSV por candidato de la escalera
 │       ├── top3/                     # Los 3 elegidos para subir primero
+│       ├── nivel7/                   # CSV finales del nivel 7 (validados)
 │       └── bitacora_kaggle.csv       # Llenar f1_kaggle a mano al subir
 ├── tests/
 │   └── test_pesos_clase.R            # Convención de pesos de clase de cada motor
@@ -87,9 +96,11 @@ workers y del sistema.
 
 Cada candidato de la escalera escribe su CSV en `stores/submissions/candidatos/` y queda
 guardado en `stores/modelos/`; si la corrida se cae, al volver a correr se cargan los ya
-terminados. `08_leaderboard.R` arma `stores/resultados/leaderboard_interno.csv`, copia los
-tres elegidos a `stores/submissions/top3/` y reescribe `bitacora_kaggle.csv` (conserva lo que
-ya se anotó en `f1_kaggle`). Después de subir a Kaggle, anoten el F1 público a mano.
+terminados. `08_leaderboard.R` arma `stores/resultados/leaderboard_interno.csv` (le une las
+filas del nivel 7 desde `leaderboard_nivel7.csv`), copia los tres elegidos a
+`stores/submissions/top3/` y actualiza `bitacora_kaggle.csv`: conserva lo anotado a mano
+(`f1_kaggle`, `orden_subida`) y las filas del nivel 7. Después de subir a Kaggle, anoten el
+F1 público a mano. El mejor modelo se elige siempre por F1 en holdout, nunca por el público.
 
 ## Escalera de modelos y evaluación interna
 
@@ -102,6 +113,7 @@ ya se anotó en `f1_kaggle`). Después de subir a Kaggle, anoten el F1 público 
 | 5. Desbalance | las del nivel 3 | el mejor del nivel 4 con SMOTE, submuestreo y pesos de clase |
 | 6. Complejo | las del nivel 3 | LightGBM (búsqueda amplia) y stacking |
 | E. Encuesta corta | 10 variables baratas | el mejor del nivel 4 y un Logit |
+| 7. Python | nivel 3 + v2 + ingreso predicho | LightGBM con auxiliares de ingreso (ver abajo) |
 
 1. Holdout estratificado del 20% que no se usa para ninguna decisión.
 2. CV de 5 folds sobre el 80% restante: hiperparámetros elegidos por F1 fuera de fold,
@@ -109,6 +121,56 @@ ya se anotó en `f1_kaggle`). Después de subir a Kaggle, anoten el F1 público 
 3. Umbral elegido con predicciones fuera de fold y aplicado fijo al holdout.
 4. Ranking final por F1 en holdout; se marca sobreajuste si F1 CV − F1 holdout > 0,02.
 5. Cada candidato se reajusta sobre el 100% del train antes de predecir el test.
+
+## Nivel 7 (Python): variables v2 y auxiliares de ingreso
+
+El nivel 7 vive en `python/` y usa **exactamente los mismos datos, folds y holdout que R**:
+`11_exportar_python.R` los exporta a `stores/procesados/*.parquet` y Python no rehace la
+partición (`python/tests/test_particion.py` verifica conteos y tasa de pobreza por fold).
+El protocolo es el mismo de la escalera: umbral elegido con OOF, F1 en holdout y reajuste
+sobre el 100% del train para predecir el test.
+
+- **Variables v2**: actividad y estabilidad laboral, régimen contributivo, tamaño de empresa
+  y posición de todos los ocupados, horas, ingresos sí/no, amortización y arriendo frente a
+  la línea de pobreza, perceptor principal y tipologías de hogares pequeños.
+- **Auxiliares de ingreso**: un LightGBM predice el ingreso laboral y otro el ingreso total
+  de cada persona con variables de personas presentes en test; la predicción se agrega al
+  hogar (per cápita sobre la unidad de gasto y frente a Lp). Se calculan con **OOF
+  anidada**: ningún hogar recibe una predicción de un modelo entrenado con él, y en cada
+  fold ningún auxiliar vio el fold de validación (`python/tests/test_sin_fuga.py`).
+- Encuesta corta: frontera F1 vs. número de variables con NSGA-II y Logit (sin auxiliares,
+  porque una encuesta corta no puede usar un modelo entrenado con la encuesta larga).
+
+| Paso | F1 holdout | Aporte |
+|---|---|---|
+| n6_lightgbm (nivel 6, R) | 0,749 | |
+| + variables laborales y de composición | 0,760 | +0,012 |
+| + auxiliar de ingreso laboral (`checkpoint_a4`, Kaggle 0,77) | 0,771 | +0,011 |
+| + auxiliar de ingreso total | 0,778 | +0,006 |
+| Optuna (75 trials) / seed bagging de 5 semillas / umbral sin Bogotá | 0,776 | 0 |
+| **Final: `n7_final.csv`** (parámetros de n6, bagging de 5 semillas) | **0,776** | **+0,027** |
+
+Entorno y corrida (en la raíz del repo, después de `main.R` o al menos de
+`01`, `03` y `11`):
+
+```bash
+py -3.12 -m venv python/.venv
+python/.venv/Scripts/python.exe -m pip install -r python/requirements.txt
+python/.venv/Scripts/python.exe -m pytest python/tests
+python/.venv/Scripts/python.exe python/etapa1_ablacion.py 90
+python/.venv/Scripts/python.exe python/etapa2_checkpoint.py
+python/.venv/Scripts/python.exe python/etapa2_variantes.py
+python/.venv/Scripts/python.exe python/etapa2_optuna.py --minutos 40 --auxiliar-total
+python/.venv/Scripts/python.exe python/etapa2_bagging_n6.py
+python/.venv/Scripts/python.exe python/umbral_sin_bogota.py
+python/.venv/Scripts/python.exe python/etapa3_encuesta_corta.py 27
+python/.venv/Scripts/python.exe python/etapa4_leaderboard.py
+Rscript scripts/08_leaderboard.R && Rscript scripts/10_mejor_modelo.R
+```
+
+Un solo proceso pesado a la vez; LightGBM paraleliza con hilos (`PS2_NUCLEOS`). Los
+auxiliares y las predicciones quedan en caché en `stores/procesados/nivel7/`, y cada etapa
+escribe hora y RAM en `stores/logs/nivel7.log`.
 
 ## Decisiones de diseño
 

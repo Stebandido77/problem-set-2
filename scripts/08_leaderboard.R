@@ -9,7 +9,24 @@ source(here::here("scripts", "00_configuracion.R"))
 
 resultados <- cargar_resultados_escalera()
 leaderboard <- construir_leaderboard(resultados)
-write_csv(leaderboard, file.path(RUTA_RESULTADOS, "leaderboard_interno.csv"))
+
+# El nivel 7 (Python) no tiene .rds: sus filas vienen de leaderboard_nivel7.csv
+# (python/etapa4_leaderboard.py). Entran al CSV del leaderboard, que leen 09 y 10;
+# el resto de este script (top 3, validación, bitácora, escalera) trabaja con los
+# candidatos de R, que son los que tienen .rds.
+ruta_nivel7 <- file.path(RUTA_RESULTADOS, "leaderboard_nivel7.csv")
+leaderboard_completo <- if (file.exists(ruta_nivel7)) {
+  nivel7 <- read_csv(ruta_nivel7, show_col_types = FALSE, col_types = cols(
+    nivel = col_character(), pesos_aplicados = col_logical(),
+    archivo_submission = col_character(), tiempo_min = col_double()
+  ))
+  stopifnot("leaderboard_nivel7.csv no tiene las columnas del leaderboard" =
+              identical(names(nivel7), names(leaderboard)))
+  bind_rows(leaderboard, nivel7)
+} else {
+  leaderboard
+}
+write_csv(leaderboard_completo, file.path(RUTA_RESULTADOS, "leaderboard_interno.csv"))
 
 # Versión compacta para las slides
 leaderboard |>

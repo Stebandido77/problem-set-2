@@ -427,25 +427,23 @@ graficar_escalera <- function(leaderboard) {
     theme(panel.grid.major.x = element_blank())
 }
 
-# Escribe la bitácora de Kaggle con una fila por CSV de candidato, conservando
-# lo que ya se haya anotado a mano en f1_kaggle.
-# Argumentos: leaderboard; top = salida $top de elegir_top3().
+# Escribe la bitácora de Kaggle con una fila por CSV de candidato de R. Conserva
+# todo lo que no genera este script: las columnas anotadas a mano (f1_kaggle,
+# orden_subida, ...), la fecha en que cada archivo entró a la bitácora y las
+# filas de otros orígenes (p. ej. el nivel 7 en Python, archivos nivel7/*.csv).
+# Argumentos: leaderboard = candidatos de R; top = salida $top de elegir_top3().
 # Devuelve: la bitácora (invisible).
 actualizar_bitacora <- function(leaderboard, top) {
   ruta_bitacora <- file.path(RUTA_SUBMISSIONS, "bitacora_kaggle.csv")
-  anotado <- if (file.exists(ruta_bitacora)) {
-    read_csv(ruta_bitacora, show_col_types = FALSE, col_types = cols(.default = "c")) |>
-      select(any_of(c("archivo", "f1_kaggle"))) |>
-      filter(!is.na(f1_kaggle))
+  previa <- if (file.exists(ruta_bitacora)) {
+    read_csv(ruta_bitacora, show_col_types = FALSE, col_types = cols(.default = "c"))
   } else {
-    tibble(archivo = character(), f1_kaggle = character())
+    tibble(archivo = character())
   }
-  if (!"f1_kaggle" %in% names(anotado)) anotado <- tibble(archivo = character(), f1_kaggle = character())
 
   bitacora <- leaderboard |>
     left_join(top, by = "candidato") |>
     transmute(
-      fecha = as.character(Sys.Date()),
       archivo = file.path("candidatos", archivo_submission),
       nivel,
       candidato,
@@ -455,8 +453,20 @@ actualizar_bitacora <- function(leaderboard, top) {
       f1_holdout = round(f1_holdout, 4),
       top3 = posicion
     ) |>
+    mutate(across(everything(), as.character))
+  columnas_generadas <- names(bitacora)
+
+  # Fecha de entrada y anotaciones manuales de los archivos que ya estaban
+  anotado <- previa |> select(archivo, !any_of(columnas_generadas))
+  bitacora <- bitacora |>
     left_join(anotado, by = "archivo") |>
-    mutate(f1_kaggle = as.numeric(f1_kaggle))
+    mutate(fecha = coalesce(if ("fecha" %in% names(anotado)) fecha else NA_character_,
+                            as.character(Sys.Date())))
+  if (!"f1_kaggle" %in% names(bitacora)) bitacora$f1_kaggle <- NA_character_
+
+  bitacora <- bind_rows(bitacora, previa |> filter(!archivo %in% bitacora$archivo)) |>
+    relocate(fecha) |>
+    relocate(any_of(names(previa)))
 
   write_csv(bitacora, ruta_bitacora, na = "")
   invisible(bitacora)

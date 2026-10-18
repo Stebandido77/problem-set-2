@@ -18,6 +18,10 @@ stores/procesados/*
 # Los .rds de tuning pesan mucho; se regeneran corriendo los scripts
 stores/resultados/*.rds
 
+# ---- PDFs sueltos en document/ (el enunciado ya está versionado; las slides
+# viven en document/slides/ y no las cubre esta regla) ----
+document/*.pdf
+
 # ---- Credenciales ----
 kaggle.json
 .env

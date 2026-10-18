@@ -1,0 +1,5 @@
+tamano,n_variables,f1_holdout,subcobertura_n,filtracion_n,dif_subcobertura_vs_n7,dif_filtracion_vs_n7,variables
+5,5.0,0.6248279658684283,2065,3387,803.0,1565.0,"prop_ocupados, jefe_oficio, recibe_arriendos, log_arriendo_relativo, n_quiere_mas_horas"
+10,8.0,0.6643119141421002,1715,3227,453.0,1405.0,"prop_ocupados, recibe_arriendos, log_arriendo_relativo, n_cotizan, n_quiere_mas_horas, horas_por_persona_ug, arriendo_por_persona_lp, dormitorios_por_persona"
+15,15.0,0.6870437333697209,1570,3017,308.0,1195.0,"prop_ocupados, recibe_subsidio_laboral, recibe_arriendos, tenencia, log_arriendo, log_arriendo_relativo, n_inactivos, n_gobierno, n_sin_remuneracion, n_otros_ingresos, n_ingreso_laboral_inactivo, n_quiere_mas_horas, horas_totales, edad_25_59, perceptor_tamano_empresa"
+mejor n7,,0.7760348583877995,1262,1822,,,

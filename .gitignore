@@ -52,3 +52,11 @@ Thumbs.db
 .vscode/
 .idea/
 *.zip
+
+# ---- Copia local de los datos de Kaggle (no se sube) ----
+data/
+# Modelos ajustados y corridas de prueba (MODO_RAPIDO): se regeneran con main.R
+stores/modelos/
+stores/rapido/
+# Registro de la corrida por candidato (hora, etapa y RAM): se regenera
+stores/logs/

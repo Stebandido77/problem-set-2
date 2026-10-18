@@ -3,18 +3,44 @@
 # Receta común, validación cruzada, tuning y predicción. Todos los algoritmos
 # pasan por aquí para garantizar una cancha nivelada (mismas variables y mismo
 # preprocesamiento).
+#
+# Esquema de evaluación de la escalera (evaluar_candidato()):
+#   1. Holdout estratificado del 20% que no se toca hasta la evaluación final.
+#   2. CV estratificada sobre el 80% restante para elegir hiperparámetros.
+#   3. Umbral elegido con predicciones fuera de fold (OOF), nunca con las mismas
+#      predicciones con que se mide el F1 reportado.
+#   4. Reajuste sobre el 80% -> F1 en holdout con el umbral OOF fijo.
+#   5. Reajuste sobre el 100% del train -> predicción del test y CSV para Kaggle.
 # ==============================================================================
+
+# ---- Receta y particiones ---------------------------------------------------
 
 # Receta de preprocesamiento compartida por todos los algoritmos.
 # Argumentos:
-#   datos    = base de entrenamiento
-#   balanceo = "ninguno", "smote" o "submuestreo" (manejo del desbalance de clases)
+#   datos     = base de entrenamiento
+#   balanceo  = "ninguno", "smote", "submuestreo" o "pesos" (manejo del desbalance).
+#               Con "pesos" la receta no cambia: los pesos de clase van en el
+#               motor (ver especificar_algoritmo()).
+#   variables = vector con los predictores del nivel; NULL usa todas las columnas.
+#               Las demás columnas quedan con rol "no_usada" y no se exigen al hornear.
 # Devuelve: objeto recipe sin estimar.
-crear_receta <- function(datos, balanceo = c("ninguno", "smote", "submuestreo")) {
+crear_receta <- function(datos, balanceo = c("ninguno", "smote", "submuestreo", "pesos"),
+                         variables = NULL) {
   balanceo <- match.arg(balanceo)
 
   receta <- recipe(pobre ~ ., data = datos) |>
-    update_role(id, new_role = "id") |>
+    update_role(id, new_role = "id")
+
+  if (!is.null(variables)) {
+    no_usadas <- setdiff(names(datos), c("id", "pobre", variables))
+    if (length(no_usadas) > 0) {
+      receta <- receta |>
+        update_role(all_of(no_usadas), new_role = "no_usada") |>
+        update_role_requirements("no_usada", bake = FALSE)
+    }
+  }
+
+  receta <- receta |>
     step_impute_median(all_numeric_predictors()) |>
     step_impute_mode(all_nominal_predictors()) |>
     step_novel(all_nominal_predictors()) |>
@@ -22,10 +48,12 @@ crear_receta <- function(datos, balanceo = c("ninguno", "smote", "submuestreo"))
     step_zv(all_predictors()) |>
     step_normalize(all_numeric_predictors())
 
-  # El balanceo solo se aplica en entrenamiento (skip = TRUE por defecto en themis)
+  # El balanceo solo se aplica en entrenamiento (skip = TRUE por defecto en themis):
+  # nunca toca la partición de validación de cada fold ni el holdout.
   receta <- switch(
     balanceo,
     ninguno     = receta,
+    pesos       = receta,
     smote       = receta |> step_smote(pobre, seed = SEMILLA),
     submuestreo = receta |> step_downsample(pobre, seed = SEMILLA)
   )
@@ -39,7 +67,607 @@ crear_folds <- function(datos, v = N_FOLDS) {
   vfold_cv(datos, v = v, strata = pobre)
 }
 
-# Conjunto de métricas que se calcula durante el tuning.
+# Separa el holdout estratificado a nivel hogar (una fila = un hogar).
+# Argumentos:
+#   datos      = base de train completa (con pobre)
+#   test       = base de test (se guarda en la misma lista por comodidad)
+#   proporcion = share que va al holdout
+#   fraccion   = share del 80% que se usa para entrenar (< 1 solo en MODO_RAPIDO)
+# Devuelve: lista con entrenamiento (80% o su submuestra), holdout (20%),
+#   completo (lo que se usa para el reajuste final) y test.
+crear_particion_holdout <- function(datos, test, proporcion = PROPORCION_HOLDOUT,
+                                    fraccion = if (MODO_RAPIDO) FRACCION_RAPIDA else 1) {
+  set.seed(SEMILLA)
+  division <- initial_split(datos, prop = 1 - proporcion, strata = pobre)
+  entrenamiento <- training(division)
+  holdout <- testing(division)
+
+  if (fraccion < 1) {
+    set.seed(SEMILLA)
+    entrenamiento <- entrenamiento |>
+      group_by(pobre) |>
+      slice_sample(prop = fraccion) |>
+      ungroup()
+  }
+
+  list(
+    entrenamiento = entrenamiento,
+    holdout = holdout,
+    completo = if (fraccion < 1) bind_rows(entrenamiento, holdout) else datos,
+    test = test
+  )
+}
+
+# ---- Especificación de algoritmos -------------------------------------------
+
+# Algoritmos cuyo motor paraleliza con hilos sobre una sola copia de los datos.
+# Para ellos los folds corren en secuencia, sin workers de future.
+ALGORITMOS_CON_HILOS <- c("random_forest", "xgboost", "lightgbm")
+
+# Peso que recibe la clase pobre en cada motor cuando se balancea con pesos.
+# scale_pos_weight multiplica el peso de la clase "positiva" del motor, y con
+# los niveles del proyecto (pobre, no_pobre) esa clase no es la misma en todos:
+#   - xgboost: la positiva es pobre      -> scale_pos_weight = razon
+#   - lightgbm: la positiva es no_pobre  -> scale_pos_weight = 1 / razon
+#   - ranger: class.weights sigue el orden de los niveles -> c(razon, 1)
+# La convención está cubierta por tests/test_pesos_clase.R con datos sintéticos.
+# Argumentos: motor = "xgboost", "lightgbm" o "ranger";
+#   razon_pesos = n_no_pobre / n_pobre, o NULL si no hay pesos.
+# Devuelve: el valor del argumento del motor (NULL en ranger sin pesos).
+peso_pobre_motor <- function(motor, razon_pesos = NULL) {
+  hay_pesos <- !is.null(razon_pesos)
+  switch(
+    motor,
+    xgboost  = if (hay_pesos) razon_pesos else 1,
+    lightgbm = if (hay_pesos) 1 / razon_pesos else 1,
+    ranger   = if (hay_pesos) c(razon_pesos, 1) else NULL,
+    stop("Motor sin regla de pesos: ", motor)
+  )
+}
+
+# Tamaño de grilla según el modo: en MODO_RAPIDO todo se reduce para validar.
+tamano_grilla <- function(completo, rapido) {
+  if (MODO_RAPIDO) rapido else completo
+}
+
+# Especificación parsnip + grilla de cada algoritmo. Centraliza los rangos de
+# búsqueda para que estén documentados en un solo lugar.
+# Argumentos:
+#   nombre      = "logit", "elastic_net", "cart", "random_forest", "xgboost",
+#                 "naive_bayes" o "lightgbm"
+#   razon_pesos = si no es NULL, peso relativo de la clase pobre (n_no_pobre / n_pobre)
+# Devuelve: lista con algoritmo (nombre del curso), modelo, grilla, descripcion
+#   de la búsqueda y parallel_over.
+especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
+  set.seed(SEMILLA)
+
+  # parsnip guarda los argumentos como expresiones que se evalúan dentro de los
+  # workers en paralelo, donde no existen las funciones ni las constantes del
+  # proyecto: se calculan aquí y se inyectan con !!
+  semilla <- SEMILLA
+  n_arboles_rf <- tamano_grilla(500, 100)
+  # Los motores con hilos corren los folds en secuencia y usan todos los núcleos
+  hilos <- N_NUCLEOS
+  pesos_rf            <- peso_pobre_motor("ranger", razon_pesos)
+  peso_pobre_xgboost  <- peso_pobre_motor("xgboost", razon_pesos)
+  peso_pobre_lightgbm <- peso_pobre_motor("lightgbm", razon_pesos)
+
+  especificacion <- switch(
+    nombre,
+
+    logit = list(
+      algoritmo = "Logit",
+      modelo = logistic_reg() |> set_engine("glm"),
+      grilla = NULL,
+      busqueda = "sin hiperparámetros"
+    ),
+
+    # glmnet estima todo el camino de penalty de una vez: la grilla regular sale barata
+    elastic_net = list(
+      algoritmo = "Elastic Net",
+      modelo = logistic_reg(penalty = tune(), mixture = tune()) |> set_engine("glmnet"),
+      grilla = grid_regular(
+        penalty(range = c(-5, 0)),
+        mixture(range = c(0, 1)),
+        levels = c(penalty = tamano_grilla(20, 4), mixture = tamano_grilla(6, 2))
+      ),
+      busqueda = "grilla regular: penalty 10^[-5, 0] x mixture [0, 1]"
+    ),
+
+    cart = list(
+      algoritmo = "CART",
+      modelo = decision_tree(cost_complexity = tune(), tree_depth = tune()) |>
+        set_engine("rpart") |>
+        set_mode("classification"),
+      grilla = grid_regular(
+        cost_complexity(range = c(-5, -1)),
+        tree_depth(range = c(3, 15)),
+        levels = tamano_grilla(6, 2)
+      ),
+      busqueda = "grilla regular: cost_complexity 10^[-5, -1] x tree_depth [3, 15]"
+    ),
+
+    random_forest = list(
+      algoritmo = "Random Forest",
+      modelo = rand_forest(mtry = tune(), min_n = tune(), trees = !!n_arboles_rf) |>
+        set_engine(
+          "ranger", importance = "impurity", seed = !!semilla, num.threads = !!hilos,
+          class.weights = !!pesos_rf
+        ) |>
+        set_mode("classification"),
+      grilla = grid_space_filling(
+        mtry(range = c(3, 25)),
+        min_n(range = c(5, 60)),
+        size = tamano_grilla(15, 2),
+        type = "latin_hypercube"
+      ),
+      busqueda = "latin hypercube: mtry [3, 25] x min_n [5, 60], 500 árboles"
+    ),
+
+    xgboost = list(
+      algoritmo = "Boosting",
+      modelo = boost_tree(trees = tune(), tree_depth = tune(), learn_rate = tune()) |>
+        set_engine("xgboost", nthread = !!hilos, scale_pos_weight = !!peso_pobre_xgboost) |>
+        set_mode("classification"),
+      grilla = grid_space_filling(
+        trees(range = c(200, tamano_grilla(1000, 300))),
+        tree_depth(range = c(3, 8)),
+        learn_rate(range = c(-3, -1)),
+        size = tamano_grilla(20, 3),
+        type = "latin_hypercube"
+      ),
+      busqueda = "latin hypercube: trees [200, 1000] x tree_depth [3, 8] x learn_rate 10^[-3, -1]"
+    ),
+
+    naive_bayes = list(
+      algoritmo = "Naive Bayes",
+      modelo = naive_Bayes(smoothness = tune(), Laplace = tune()) |>
+        set_engine("naivebayes"),
+      grilla = grid_regular(
+        smoothness(range = c(0.5, 1.5)),
+        Laplace(range = c(0, 3)),
+        levels = tamano_grilla(4, 2)
+      ),
+      busqueda = "grilla regular: smoothness [0.5, 1.5] x Laplace [0, 3]"
+    ),
+
+    lightgbm = list(
+      algoritmo = "Boosting",
+      modelo = boost_tree(
+        trees = tune(), tree_depth = tune(), learn_rate = tune(), min_n = tune(),
+        mtry = tune(), loss_reduction = tune(), sample_size = tune()
+      ) |>
+        set_engine(
+          "lightgbm", num_threads = !!hilos, verbose = -1, seed = !!semilla,
+          counts = FALSE,  # mtry como proporción de columnas
+          scale_pos_weight = !!peso_pobre_lightgbm
+        ) |>
+        set_mode("classification"),
+      grilla = grid_space_filling(
+        trees(range = c(200, tamano_grilla(2000, 400))),
+        tree_depth(range = c(3, 12)),
+        learn_rate(range = c(-3, -0.7)),
+        min_n(range = c(10, 200)),
+        mtry_prop(range = c(0.2, 1)),
+        loss_reduction(range = c(-10, 1)),
+        sample_prop(range = c(0.5, 1)),
+        size = tamano_grilla(50, 3),
+        type = "latin_hypercube"
+      ) |>
+        # mtry_prop se llama así en la grilla; sample_prop ya sale como sample_size
+        rename(any_of(c(mtry = "mtry_prop", sample_size = "sample_prop"))),
+      busqueda = paste(
+        "latin hypercube 50: trees [200, 2000], tree_depth [3, 12], learn_rate 10^[-3, -0.7],",
+        "min_n [10, 200], mtry [0.2, 1], loss_reduction 10^[-10, 1], sample_size [0.5, 1]"
+      )
+    ),
+
+    stop("Algoritmo desconocido: ", nombre)
+  )
+
+  especificacion$nombre <- nombre
+  especificacion
+}
+
+# Fija el número de hilos del motor en los ajustes finales (holdout y 100%).
+# Los motores con hilos ya traen N_NUCLEOS desde especificar_algoritmo(); se
+# conserva por si una especificación llega de otra parte con 1 hilo.
+# Argumentos: modelo = especificación parsnip; hilos = número de hilos.
+# Devuelve: la especificación con los hilos actualizados.
+ajustar_hilos <- function(modelo, hilos = N_NUCLEOS) {
+  argumento <- switch(
+    modelo$engine,
+    ranger   = "num.threads",
+    xgboost  = "nthread",
+    lightgbm = "num_threads",
+    NULL
+  )
+  if (is.null(argumento)) return(modelo)
+
+  argumentos <- modelo$eng_args
+  argumentos[[argumento]] <- rlang::quo(!!hilos)
+  set_engine(modelo, modelo$engine, !!!argumentos)
+}
+
+# ---- Predicciones fuera de fold ---------------------------------------------
+
+# Tuning (o solo remuestreo si no hay grilla) guardando las predicciones OOF.
+# Argumentos: flujo = workflow; folds; grilla (NULL si no hay hiperparámetros);
+#   parallel_over = estrategia de paralelización de tune.
+# Devuelve: lista con predicciones (.config, fold, .row, verdad, probabilidad)
+#   y configuraciones (una fila por combinación de hiperparámetros).
+obtener_oof_tidymodels <- function(flujo, folds, grilla, parallel_over = "everything") {
+  metricas <- metric_set(roc_auc)
+
+  set.seed(SEMILLA)
+  resultados <- if (is.null(grilla)) {
+    fit_resamples(flujo, folds, metrics = metricas,
+                  control = control_resamples(save_pred = TRUE, parallel_over = parallel_over))
+  } else {
+    tune_grid(flujo, folds, grid = grilla, metrics = metricas,
+              control = control_grid(save_pred = TRUE, parallel_over = parallel_over))
+  }
+
+  nombres_parametros <- if (is.null(grilla)) character() else names(grilla)
+
+  predicciones <- collect_predictions(resultados, summarize = FALSE) |>
+    transmute(
+      .config, fold = id, .row,
+      verdad = as.integer(pobre == "pobre"),
+      probabilidad = .pred_pobre
+    )
+
+  configuraciones <- collect_metrics(resultados) |>
+    distinct(.config, across(any_of(nombres_parametros)))
+
+  list(predicciones = predicciones, configuraciones = configuraciones)
+}
+
+# Versión manual de las predicciones OOF para modelos que no pasan por parsnip
+# (LPM y reglas naive). Corre secuencialmente: son modelos baratos.
+# Argumentos:
+#   ajustar_predecir = función(entrenamiento, evaluacion, config) que devuelve
+#                      lista con probabilidad (y opcionalmente modelo)
+#   folds            = salida de crear_folds()
+#   configuraciones  = tibble con una fila por configuración (NULL = una sola)
+# Devuelve: misma estructura que obtener_oof_tidymodels().
+obtener_oof_manual <- function(ajustar_predecir, folds, configuraciones = NULL) {
+  if (is.null(configuraciones)) configuraciones <- tibble(.row_config = 1)
+  configuraciones <- configuraciones |>
+    mutate(.config = paste0("config_", row_number()))
+
+  predicciones <- map_dfr(seq_along(folds$splits), function(k) {
+    particion <- folds$splits[[k]]
+    analisis <- analysis(particion)
+    evaluacion <- assessment(particion)
+
+    map_dfr(seq_len(nrow(configuraciones)), function(j) {
+      tibble(
+        .config = configuraciones$.config[j],
+        fold = folds$id[k],
+        .row = complement(particion),
+        verdad = as.integer(evaluacion$pobre == "pobre"),
+        probabilidad = ajustar_predecir(analisis, evaluacion, configuraciones[j, ])$probabilidad
+      )
+    })
+  })
+
+  list(
+    predicciones = predicciones,
+    configuraciones = configuraciones |> select(-any_of(".row_config"))
+  )
+}
+
+# Elige la configuración de hiperparámetros con el mayor F1 OOF, evaluando cada
+# configuración en su propio umbral óptimo (no en el 0,5 de select_best()).
+# Argumentos: predicciones = salida $predicciones de obtener_oof_*().
+# Devuelve: lista con la tabla por configuración y el .config ganador.
+seleccionar_por_f1_oof <- function(predicciones) {
+  tabla <- predicciones |>
+    group_by(.config) |>
+    group_modify(function(datos, llave) {
+      busqueda <- buscar_umbral_f1(datos$verdad, datos$probabilidad)
+      tibble(umbral = busqueda$umbral, f1_oof = max(busqueda$curva$f1))
+    }) |>
+    ungroup() |>
+    arrange(desc(f1_oof))
+
+  list(tabla = tabla, mejor = tabla$.config[1])
+}
+
+# Métricas de CV con un umbral fijo: media y desviación entre folds.
+# Argumentos: predicciones = OOF de una sola configuración; umbral = umbral fijo.
+# Devuelve: tibble de una fila con f1_cv, f1_cv_sd, precision_cv, recall_cv, accuracy_cv.
+metricas_por_fold <- function(predicciones, umbral) {
+  predicciones |>
+    group_by(fold) |>
+    group_modify(~ calcular_metricas(.x$verdad, as.integer(.x$probabilidad >= umbral))) |>
+    ungroup() |>
+    summarise(
+      f1_cv        = mean(f1),
+      f1_cv_sd     = sd(f1),
+      precision_cv = mean(precision),
+      recall_cv    = mean(recall),
+      accuracy_cv  = mean(accuracy)
+    )
+}
+
+# ---- Importancia de variables -----------------------------------------------
+
+# Importancia de variables directamente desde el motor de cada algoritmo
+# (reemplaza a vip, que salió de CRAN).
+# Argumentos: modelo = workflow ajustado o lm (LPM).
+# Devuelve: tibble (variable, importancia) normalizada a máximo 1, o NULL si el
+#   algoritmo no tiene una medida natural (Naive Bayes).
+calcular_importancia <- function(modelo) {
+  motor <- if (inherits(modelo, "workflow")) extract_fit_engine(modelo) else modelo
+
+  importancia <- tryCatch(
+    {
+      if (inherits(motor, "ranger")) {
+        imp <- ranger::importance(motor)
+        tibble(variable = names(imp), importancia = unname(imp))
+      } else if (inherits(motor, "xgb.Booster")) {
+        xgboost::xgb.importance(model = motor) |>
+          as_tibble() |>
+          transmute(variable = Feature, importancia = Gain)
+      } else if (inherits(motor, "lgb.Booster")) {
+        lightgbm::lgb.importance(motor) |>
+          as_tibble() |>
+          transmute(variable = Feature, importancia = Gain)
+      } else if (inherits(motor, "rpart")) {
+        imp <- motor$variable.importance
+        tibble(variable = names(imp), importancia = unname(imp))
+      } else if (inherits(motor, "glmnet")) {
+        # Predictores normalizados en la receta: |coeficiente| es comparable
+        tidy(extract_fit_parsnip(modelo)) |>
+          filter(term != "(Intercept)") |>
+          transmute(variable = term, importancia = abs(estimate))
+      } else if (inherits(motor, c("glm", "lm"))) {
+        # |estadístico t o z|: efecto sobre su error estándar
+        broom::tidy(motor) |>
+          filter(term != "(Intercept)", !is.na(statistic)) |>
+          transmute(variable = term, importancia = abs(statistic))
+      } else {
+        NULL
+      }
+    },
+    error = function(e) NULL
+  )
+
+  if (is.null(importancia) || nrow(importancia) == 0) return(NULL)
+
+  importancia |>
+    mutate(importancia = importancia / max(importancia)) |>
+    arrange(desc(importancia))
+}
+
+# Convierte una fila de hiperparámetros en texto legible para el leaderboard.
+describir_hiperparametros <- function(hiperparametros) {
+  if (is.null(hiperparametros) || ncol(hiperparametros) == 0) return("ninguno")
+  valores <- map_chr(hiperparametros, function(x) {
+    if (is.numeric(x)) format(signif(x, 3)) else as.character(x)
+  })
+  paste(names(valores), valores, sep = " = ", collapse = "; ")
+}
+
+# ---- Núcleo de la escalera --------------------------------------------------
+
+# Evalúa un candidato de la escalera de punta a punta (ver encabezado del archivo).
+# Si stores/modelos/<nombre>.rds existe, lo carga en vez de recalcular.
+# Argumentos:
+#   nombre, nivel, algoritmo, especificacion = identificación del candidato
+#   particion        = salida de crear_particion_holdout()
+#   folds            = folds sobre particion$entrenamiento (los mismos para todos)
+#   receta           = salida de crear_receta()
+#   modelo, grilla   = especificación parsnip y grilla (tipo "tidymodels")
+#   ajustar_predecir = función(entrenamiento, evaluacion, config) para tipo "manual"
+#   configuraciones  = tibble de configuraciones para tipo "manual"
+#   parallel_over    = estrategia de paralelización de tune
+#   balanceo, variables, busqueda = metadatos para el leaderboard
+# Devuelve: lista con hiperparámetros, umbral, métricas CV y holdout, predicciones
+#   OOF/holdout/test e importancia de variables.
+evaluar_candidato <- function(nombre, nivel, algoritmo, especificacion, particion, folds,
+                              receta = NULL, modelo = NULL, grilla = NULL,
+                              ajustar_predecir = NULL, configuraciones = NULL,
+                              parallel_over = "everything", balanceo = "ninguno",
+                              variables = character(), busqueda = "sin hiperparámetros") {
+  ruta_resultado <- file.path(RUTA_MODELOS, paste0(nombre, ".rds"))
+  if (file.exists(ruta_resultado)) {
+    message("[", nombre, "] cargado desde ", basename(ruta_resultado))
+    registrar_log(nombre, "cargado de caché")
+    return(readRDS(ruta_resultado))
+  }
+
+  message("\n[", nombre, "] ", especificacion)
+  inicio <- Sys.time()
+  registrar_log(nombre, "inicio", reiniciar_pico = TRUE)
+  es_tidymodels <- !is.null(modelo)
+
+  # 1. Predicciones fuera de fold sobre el 80%
+  oof <- if (es_tidymodels) {
+    flujo <- workflow() |> add_recipe(receta) |> add_model(modelo)
+    obtener_oof_tidymodels(flujo, folds, grilla, parallel_over)
+  } else {
+    obtener_oof_manual(ajustar_predecir, folds, configuraciones)
+  }
+  registrar_log(nombre, "fin de la CV")
+
+  # 2. Hiperparámetros y umbral elegidos solo con predicciones OOF
+  seleccion <- seleccionar_por_f1_oof(oof$predicciones)
+  predicciones_mejor <- oof$predicciones |> filter(.config == seleccion$mejor)
+  busqueda_umbral <- buscar_umbral_f1(predicciones_mejor$verdad, predicciones_mejor$probabilidad)
+  umbral <- busqueda_umbral$umbral
+  metricas_cv <- metricas_por_fold(predicciones_mejor, umbral)
+  hiperparametros <- oof$configuraciones |>
+    filter(.config == seleccion$mejor) |>
+    select(-.config)
+
+  ajustador <- if (es_tidymodels) {
+    function(entrenamiento, evaluacion) {
+      flujo_final <- finalize_workflow(flujo, hiperparametros)
+      flujo_final <- flujo_final |>
+        update_model(ajustar_hilos(extract_spec_parsnip(flujo_final)))
+      ajuste <- fit(flujo_final, entrenamiento)
+      list(
+        probabilidad = predict(ajuste, evaluacion, type = "prob")$.pred_pobre,
+        modelo = ajuste
+      )
+    }
+  } else {
+    function(entrenamiento, evaluacion) {
+      ajustar_predecir(entrenamiento, evaluacion, hiperparametros)
+    }
+  }
+
+  # 3. Holdout: reajuste sobre el 80% y umbral OOF fijo
+  probabilidad_holdout <- ajustador(particion$entrenamiento, particion$holdout)$probabilidad
+  verdad_holdout <- as.integer(particion$holdout$pobre == "pobre")
+  clases_holdout <- as.integer(probabilidad_holdout >= umbral)
+  metricas_holdout <- calcular_metricas(verdad_holdout, clases_holdout)
+  registrar_log(nombre, "fin del holdout")
+
+  # 4. Reajuste sobre el 100% del train y predicción del test
+  ajuste_final <- ajustador(particion$completo, particion$test)
+  clases_test <- as.integer(ajuste_final$probabilidad >= umbral)
+  registrar_log(nombre, "fin del ajuste final")
+
+  resultado <- list(
+    nombre = nombre,
+    nivel = nivel,
+    algoritmo = algoritmo,
+    especificacion = especificacion,
+    balanceo = balanceo,
+    variables = variables,
+    busqueda = busqueda,
+    n_configuraciones = nrow(seleccion$tabla),
+    hiperparametros = hiperparametros,
+    umbral = umbral,
+    curva_umbral = busqueda_umbral$curva,
+    seleccion = seleccion$tabla,
+    metricas_cv = metricas_cv,
+    metricas_holdout = metricas_holdout,
+    oof = predicciones_mejor |> select(.row, fold, verdad, probabilidad),
+    prediccion_holdout = tibble(
+      id = particion$holdout$id, probabilidad = probabilidad_holdout, clase = clases_holdout
+    ),
+    prediccion_test = tibble(
+      id = particion$test$id, probabilidad = ajuste_final$probabilidad, clase = clases_test
+    ),
+    importancia = calcular_importancia(ajuste_final$modelo),
+    archivo_submission = paste0(nombre, ".csv"),
+    tiempo_min = as.numeric(difftime(Sys.time(), inicio, units = "mins"))
+  )
+
+  guardar_submission(
+    ids = particion$test$id,
+    clases = clases_test,
+    algoritmo = algoritmo,
+    especificacion = especificacion,
+    f1_cv = metricas_cv$f1_cv,
+    carpeta = file.path(RUTA_SUBMISSIONS, "candidatos"),
+    nombre_archivo = resultado$archivo_submission,
+    nivel = nivel,
+    f1_holdout = metricas_holdout$f1,
+    registrar = FALSE
+  )
+
+  # El modelo ajustado sobre el 100% se guarda aparte y adelgazado. El resultado
+  # solo lleva predicciones (OOF, y las de holdout y test que usa el stacking),
+  # métricas, hiperparámetros y umbral: nunca el objeto de tuning.
+  modelo_final <- adelgazar_modelo(ajuste_final$modelo, particion$test, ajuste_final$probabilidad)
+  saveRDS(modelo_final, file.path(RUTA_MODELOS, paste0(nombre, "_ajuste.rds")))
+  saveRDS(resultado, ruta_resultado)
+
+  message(sprintf(
+    "[%s] F1 CV = %.4f (sd %.4f) | F1 holdout = %.4f | umbral = %.2f | %.1f min",
+    nombre, metricas_cv$f1_cv, metricas_cv$f1_cv_sd, metricas_holdout$f1, umbral,
+    resultado$tiempo_min
+  ))
+  registrar_log(nombre, "fin", inicio = inicio)
+
+  # Libera lo pesado antes del siguiente candidato
+  rm(oof, ajuste_final, modelo_final, ajustador)
+  gc(verbose = FALSE)
+  resultado
+}
+
+# Adelgaza un modelo ajustado con butcher (quita datos de entrenamiento, llamadas
+# y entornos que no hacen falta para predecir). Si es un workflow, verifica que
+# siga prediciendo igual sobre unas filas del test; si butcher falla o cambia
+# las predicciones, devuelve el modelo original.
+# Argumentos: modelo = workflow ajustado, lm (LPM) o NULL (reglas);
+#   test = base de test; probabilidad = P(pobre) del modelo original en test;
+#   n_filas = filas del test con que se verifica.
+# Devuelve: el modelo adelgazado (o el original).
+adelgazar_modelo <- function(modelo, test, probabilidad, n_filas = 200) {
+  if (!inherits(modelo, c("workflow", "lm"))) return(modelo)
+
+  adelgazado <- tryCatch(butcher::butcher(modelo), error = function(e) NULL)
+  if (is.null(adelgazado)) return(modelo)
+  # El lm del LPM predice sobre la receta horneada; butcher conserva los
+  # coeficientes, que es lo único que usa predict.lm
+  if (inherits(adelgazado, "lm")) return(adelgazado)
+
+  filas <- seq_len(min(n_filas, nrow(test)))
+  prediccion <- tryCatch(
+    predict(adelgazado, test[filas, ], type = "prob")$.pred_pobre,
+    error = function(e) NA_real_
+  )
+  if (anyNA(prediccion) || max(abs(prediccion - probabilidad[filas])) > 1e-8) {
+    message("  butcher cambió las predicciones: se guarda el modelo sin adelgazar")
+    return(modelo)
+  }
+  adelgazado
+}
+
+# ---- Ajustadores manuales ----------------------------------------------------
+
+# Construye el ajustador del modelo lineal de probabilidad. Va aparte porque
+# parsnip no lo trata como clasificador: se estima con lm() sobre la receta horneada.
+# Argumentos: receta = salida de crear_receta().
+# Devuelve: función(entrenamiento, evaluacion, config) -> lista(probabilidad, modelo).
+crear_ajustador_lpm <- function(receta) {
+  function(entrenamiento, evaluacion, config = NULL) {
+    receta_estimada <- prep(receta, training = entrenamiento)
+    base_train <- bake(receta_estimada, new_data = NULL, all_predictors(), all_outcomes()) |>
+      mutate(pobre = as.integer(pobre == "pobre"))
+    base_eval <- bake(receta_estimada, new_data = evaluacion, all_predictors())
+
+    modelo <- lm(pobre ~ ., data = base_train)
+    # Con dominio y departamento hay dummies colineales: lm las descarta (NA) y avisa
+    probabilidad <- suppressWarnings(predict(modelo, newdata = base_eval))
+    list(probabilidad = pmin(pmax(probabilidad, 0), 1), modelo = modelo)
+  }
+}
+
+# Ajustador de las reglas naive del nivel 1.
+# config$variable puede ser "todos_pobres", "todos_no_pobres" o el nombre de una
+# variable: en ese caso la "probabilidad" es el percentil de la variable en el
+# entrenamiento (en el sentido en que se asocia con pobreza), así el umbral
+# óptimo equivale a cortar la variable en un percentil.
+# Devuelve: lista(probabilidad, modelo).
+ajustar_predecir_regla <- function(entrenamiento, evaluacion, config) {
+  variable <- config$variable
+  n <- nrow(evaluacion)
+  if (variable == "todos_pobres")    return(list(probabilidad = rep(1, n), modelo = NULL))
+  if (variable == "todos_no_pobres") return(list(probabilidad = rep(0, n), modelo = NULL))
+
+  mediana <- median(entrenamiento[[variable]], na.rm = TRUE)
+  x <- coalesce(entrenamiento[[variable]], mediana)
+  sentido <- sign(cor(x, as.integer(entrenamiento$pobre == "pobre")))
+  acumulada <- ecdf(sentido * x)
+
+  x_evaluacion <- coalesce(evaluacion[[variable]], mediana)
+  list(
+    probabilidad = acumulada(sentido * x_evaluacion),
+    modelo = list(variable = variable, sentido = sentido, mediana = mediana)
+  )
+}
+
+# ---- Flujos por algoritmo (compatibles con las llamadas originales) ---------
+
+# Conjunto de métricas que se calcula durante el tuning (flujo sin holdout).
 metricas_tuning <- metric_set(f_meas, precision, recall, roc_auc)
 
 # Corre el flujo completo de un algoritmo: tuning por CV, umbral óptimo de F1,
@@ -53,9 +681,34 @@ metricas_tuning <- metric_set(f_meas, precision, recall, roc_auc)
 #   datos_train    = base de entrenamiento
 #   datos_test     = base de test
 #   especificacion = descripción corta para la bitácora
-# Devuelve: lista con mejores hiperparámetros, umbral, métricas CV y modelo final.
+#   Argumentos nuevos (opcionales; sin ellos la función se comporta como antes):
+#   datos_holdout  = si no es NULL, usa el esquema con holdout de evaluar_candidato():
+#                    datos_train es el 80% y el reajuste final usa train + holdout
+#   nivel, nombre, balanceo, variables, busqueda, parallel_over = ver evaluar_candidato()
+# Devuelve: lista con mejores hiperparámetros, umbral, métricas CV y modelo final
+#   (o la salida de evaluar_candidato() si hay holdout).
 correr_algoritmo <- function(algoritmo, modelo, receta, folds, grilla,
-                             datos_train, datos_test, especificacion) {
+                             datos_train, datos_test, especificacion,
+                             datos_holdout = NULL, nivel = NA_character_, nombre = NULL,
+                             balanceo = "ninguno", variables = character(),
+                             busqueda = "sin hiperparámetros",
+                             parallel_over = "everything") {
+  if (!is.null(datos_holdout)) {
+    particion <- list(
+      entrenamiento = datos_train,
+      holdout = datos_holdout,
+      completo = bind_rows(datos_train, datos_holdout),
+      test = datos_test
+    )
+    return(evaluar_candidato(
+      nombre = nombre %||% str_replace_all(str_to_lower(algoritmo), " ", "_"),
+      nivel = nivel, algoritmo = algoritmo, especificacion = especificacion,
+      particion = particion, folds = folds, receta = receta, modelo = modelo,
+      grilla = grilla, parallel_over = parallel_over, balanceo = balanceo,
+      variables = variables, busqueda = busqueda
+    ))
+  }
+
   flujo <- workflow() |> add_recipe(receta) |> add_model(modelo)
   control <- control_grid(save_pred = TRUE, parallel_over = "everything")
 
@@ -71,11 +724,11 @@ correr_algoritmo <- function(algoritmo, modelo, receta, folds, grilla,
 
   # Predicciones fuera de muestra del mejor modelo -> umbral que maximiza F1
   predicciones_oof <- collect_predictions(resultados_cv, parameters = if (nrow(mejores)) mejores)
-  busqueda <- buscar_umbral_f1(
+  busqueda_umbral <- buscar_umbral_f1(
     verdad = as.integer(predicciones_oof$pobre == "pobre"),
     probabilidad = predicciones_oof$.pred_pobre
   )
-  metricas_cv <- busqueda$curva |> filter(umbral == busqueda$umbral)
+  metricas_cv <- busqueda_umbral$curva |> filter(umbral == busqueda_umbral$umbral)
 
   # Ajuste final con toda la base de entrenamiento
   flujo_final <- if (nrow(mejores)) finalize_workflow(flujo, mejores) else flujo
@@ -84,7 +737,7 @@ correr_algoritmo <- function(algoritmo, modelo, receta, folds, grilla,
   probabilidad_test <- predict(modelo_final, datos_test, type = "prob")$.pred_pobre
   guardar_submission(
     ids = datos_test$id,
-    clases = as.integer(probabilidad_test >= busqueda$umbral),
+    clases = as.integer(probabilidad_test >= busqueda_umbral$umbral),
     algoritmo = algoritmo,
     especificacion = especificacion,
     f1_cv = metricas_cv$f1
@@ -94,9 +747,9 @@ correr_algoritmo <- function(algoritmo, modelo, receta, folds, grilla,
     algoritmo = algoritmo,
     especificacion = especificacion,
     mejores_hiperparametros = mejores,
-    umbral = busqueda$umbral,
+    umbral = busqueda_umbral$umbral,
     metricas_cv = metricas_cv,
-    curva_umbral = busqueda$curva,
+    curva_umbral = busqueda_umbral$curva,
     modelo_final = modelo_final
   )
 
@@ -104,21 +757,25 @@ correr_algoritmo <- function(algoritmo, modelo, receta, folds, grilla,
   resultado
 }
 
-# Modelo lineal de probabilidad. Va aparte porque parsnip no lo trata como
-# clasificador: se estima con lm() sobre la receta horneada.
-# Mismos argumentos que correr_algoritmo(), sin modelo ni grilla.
-correr_lpm <- function(receta, folds, datos_train, datos_test, especificacion) {
-  ajustar_y_predecir <- function(entrenamiento, evaluacion) {
-    receta_estimada <- prep(receta, training = entrenamiento)
-    base_train <- bake(receta_estimada, new_data = NULL) |>
-      mutate(pobre = as.integer(pobre == "pobre"))
-    base_eval <- bake(receta_estimada, new_data = evaluacion)
+# Modelo lineal de probabilidad. Mismos argumentos que correr_algoritmo(), sin
+# modelo ni grilla. Con datos_holdout usa el esquema de evaluar_candidato().
+correr_lpm <- function(receta, folds, datos_train, datos_test, especificacion,
+                       datos_holdout = NULL, nivel = NA_character_, nombre = "lpm",
+                       variables = character()) {
+  ajustar_y_predecir <- crear_ajustador_lpm(receta)
 
-    modelo <- lm(pobre ~ ., data = select(base_train, -id))
-    list(
-      modelo = modelo,
-      probabilidad = pmin(pmax(predict(modelo, newdata = base_eval), 0), 1)
+  if (!is.null(datos_holdout)) {
+    particion <- list(
+      entrenamiento = datos_train,
+      holdout = datos_holdout,
+      completo = bind_rows(datos_train, datos_holdout),
+      test = datos_test
     )
+    return(evaluar_candidato(
+      nombre = nombre, nivel = nivel, algoritmo = "LPM", especificacion = especificacion,
+      particion = particion, folds = folds, ajustar_predecir = ajustar_y_predecir,
+      variables = variables
+    ))
   }
 
   predicciones_oof <- map_dfr(folds$splits, function(particion) {
@@ -129,13 +786,13 @@ correr_lpm <- function(receta, folds, datos_train, datos_test, especificacion) {
     )
   })
 
-  busqueda <- buscar_umbral_f1(predicciones_oof$verdad, predicciones_oof$probabilidad)
-  metricas_cv <- busqueda$curva |> filter(umbral == busqueda$umbral)
+  busqueda_umbral <- buscar_umbral_f1(predicciones_oof$verdad, predicciones_oof$probabilidad)
+  metricas_cv <- busqueda_umbral$curva |> filter(umbral == busqueda_umbral$umbral)
 
   final <- ajustar_y_predecir(datos_train, datos_test)
   guardar_submission(
     ids = datos_test$id,
-    clases = as.integer(final$probabilidad >= busqueda$umbral),
+    clases = as.integer(final$probabilidad >= busqueda_umbral$umbral),
     algoritmo = "LPM",
     especificacion = especificacion,
     f1_cv = metricas_cv$f1
@@ -145,9 +802,9 @@ correr_lpm <- function(receta, folds, datos_train, datos_test, especificacion) {
     algoritmo = "LPM",
     especificacion = especificacion,
     mejores_hiperparametros = tibble(),
-    umbral = busqueda$umbral,
+    umbral = busqueda_umbral$umbral,
     metricas_cv = metricas_cv,
-    curva_umbral = busqueda$curva,
+    curva_umbral = busqueda_umbral$curva,
     modelo_final = final$modelo
   )
 

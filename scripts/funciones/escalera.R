@@ -81,6 +81,22 @@ correr_candidato_escalera <- function(id_algoritmo, nombre, nivel, variables,
   razon_pesos <- if (balanceo == "pesos") calcular_razon_pesos(particion$entrenamiento)
   especificacion_modelo <- especificar_algoritmo(id_algoritmo, razon_pesos = razon_pesos)
 
+  # Pesos por fila: la columna va en el 80% (y sus folds) y en el holdout, que
+  # se suma al 80% en el reajuste final. Nunca cambia qué filas hay en cada parte.
+  columna_pesos <- NULL
+  if (especificacion_modelo$mecanismo_pesos == "case_weights") {
+    columna_pesos <- "peso_caso"
+    con_pesos <- agregar_pesos_caso_particion(particion, folds, especificacion_modelo$peso_caso)
+    particion <- con_pesos$particion
+    folds <- con_pesos$folds
+    receta <- crear_receta(particion$entrenamiento, balanceo = balanceo, variables = variables)
+  }
+  descripcion_balanceo <- if (balanceo == "pesos") {
+    paste0("pesos (", especificacion_modelo$mecanismo_pesos, ")")
+  } else {
+    balanceo
+  }
+
   correr_algoritmo(
     algoritmo = especificacion_modelo$algoritmo,
     modelo = especificacion_modelo$modelo,
@@ -91,7 +107,7 @@ correr_candidato_escalera <- function(id_algoritmo, nombre, nivel, variables,
     datos_test = particion$test,
     especificacion = paste(
       especificacion_modelo$algoritmo, paste0("(", id_algoritmo, ")"), "|",
-      descripcion_nivel, "| balanceo:", balanceo, "|", especificacion_modelo$busqueda
+      descripcion_nivel, "| balanceo:", descripcion_balanceo, "|", especificacion_modelo$busqueda
     ),
     datos_holdout = particion$holdout,
     nivel = nivel,
@@ -100,8 +116,26 @@ correr_candidato_escalera <- function(id_algoritmo, nombre, nivel, variables,
     variables = variables,
     busqueda = especificacion_modelo$busqueda,
     # SMOTE es caro: mejor estimar la receta una sola vez por fold
-    parallel_over = if (balanceo == "smote") "resamples" else "everything"
+    parallel_over = if (balanceo == "smote") "resamples" else "everything",
+    columna_pesos = columna_pesos,
+    mecanismo_pesos = especificacion_modelo$mecanismo_pesos,
+    pesos_aplicados = especificacion_modelo$pesos_aplicados
   )
+}
+
+# Agrega los pesos por fila al 80%, a sus folds y al holdout (ver
+# agregar_pesos_caso()). Los folds conservan exactamente las mismas filas: solo
+# se reemplaza la base a la que apuntan por la misma base con la columna nueva.
+# Argumentos: particion, folds = salidas de cargar_particion(); razon_pesos.
+# Devuelve: lista con particion y folds.
+agregar_pesos_caso_particion <- function(particion, folds, razon_pesos) {
+  particion$entrenamiento <- agregar_pesos_caso(particion$entrenamiento, razon_pesos)
+  particion$holdout <- agregar_pesos_caso(particion$holdout, razon_pesos)
+  folds$splits <- map(folds$splits, function(division) {
+    division$data <- particion$entrenamiento
+    division
+  })
+  list(particion = particion, folds = folds)
 }
 
 # Regla naive del nivel 1 (constante o de una sola variable).
@@ -282,6 +316,9 @@ fila_leaderboard <- function(resultado) {
     n_variables = length(resultado$variables),
     variables = paste(resultado$variables, collapse = ", "),
     balanceo = resultado$balanceo,
+    mecanismo_pesos = resultado$mecanismo_pesos %||% "sin_pesos",
+    # FALSE: se pidieron pesos de clase pero el motor no los aplica
+    pesos_aplicados = resultado$pesos_aplicados %||% NA,
     busqueda = resultado$busqueda,
     n_configuraciones = resultado$n_configuraciones,
     hiperparametros = describir_hiperparametros(resultado$hiperparametros),
@@ -319,11 +356,12 @@ construir_leaderboard <- function(resultados) {
 # familia propia): XGBoost con y sin balanceo, o XGBoost vs. LightGBM, son
 # variaciones del mismo Boosting, y subir tres de ellas no enseña nada en Kaggle.
 # Para cada salto se reporta qué tanto coincide con el elegido en el holdout.
-# Las reglas naive no entran.
+# Las reglas naive no entran, ni un candidato con pesos de clase que su motor
+# no aplica (pesos_aplicados = FALSE).
 # Argumentos: leaderboard; resultados = lista de candidatos; n = cuántos elegir.
 # Devuelve: lista con top (posición, candidato) y saltados (con su concordancia).
 elegir_top3 <- function(leaderboard, resultados, n = 3) {
-  ranking <- leaderboard |> filter(algoritmo != "Regla")
+  ranking <- leaderboard |> filter(algoritmo != "Regla", !(pesos_aplicados %in% FALSE))
   elegidos <- character()
   saltados <- tibble(candidato = character(), parecido_a = character(), concordancia = numeric())
 

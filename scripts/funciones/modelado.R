@@ -32,7 +32,9 @@ crear_receta <- function(datos, balanceo = c("ninguno", "smote", "submuestreo", 
     update_role(id, new_role = "id")
 
   if (!is.null(variables)) {
-    no_usadas <- setdiff(names(datos), c("id", "pobre", variables))
+    # La columna de pesos por fila (si la hay) conserva su rol case_weights
+    pesos_caso <- names(datos)[map_lgl(datos, hardhat::is_case_weights)]
+    no_usadas <- setdiff(names(datos), c("id", "pobre", variables, pesos_caso))
     if (length(no_usadas) > 0) {
       receta <- receta |>
         update_role(all_of(no_usadas), new_role = "no_usada") |>
@@ -104,25 +106,69 @@ crear_particion_holdout <- function(datos, test, proporcion = PROPORCION_HOLDOUT
 # Para ellos los folds corren en secuencia, sin workers de future.
 ALGORITMOS_CON_HILOS <- c("random_forest", "xgboost", "lightgbm")
 
-# Peso que recibe la clase pobre en cada motor cuando se balancea con pesos.
-# scale_pos_weight multiplica el peso de la clase "positiva" del motor, y con
-# los niveles del proyecto (pobre, no_pobre) esa clase no es la misma en todos:
-#   - xgboost: la positiva es pobre      -> scale_pos_weight = razon
-#   - lightgbm: la positiva es no_pobre  -> scale_pos_weight = 1 / razon
-#   - ranger: class.weights sigue el orden de los niveles -> c(razon, 1)
-# La convención está cubierta por tests/test_pesos_clase.R con datos sintéticos.
-# Argumentos: motor = "xgboost", "lightgbm" o "ranger";
-#   razon_pesos = n_no_pobre / n_pobre, o NULL si no hay pesos.
-# Devuelve: el valor del argumento del motor (NULL en ranger sin pesos).
+# Motor de cada algoritmo de especificar_algoritmo().
+MOTOR_POR_ALGORITMO <- c(
+  logit = "glm", elastic_net = "glmnet", cart = "rpart", random_forest = "ranger",
+  xgboost = "xgboost", naive_bayes = "naivebayes", lightgbm = "lightgbm"
+)
+
+# Cómo se le da más peso a la clase pobre en cada motor, en el modo que usa el
+# pipeline (parsnip en clasificación, prediciendo probabilidades). Es la única
+# fuente de esta convención; tests/test_pesos_clase.R verifica que cada
+# mecanismo efectivamente mueve P(pobre).
+#   - scale_pos_weight (xgboost, lightgbm): multiplica el peso de la clase
+#     "positiva" del motor, que con los niveles (pobre, no_pobre) no es la misma
+#     en los dos: en xgboost es pobre (valor = razón); en lightgbm es no_pobre
+#     (valor = 1 / razón).
+#   - case_weights (ranger, rpart, glm, glmnet): pesos por fila con
+#     hardhat::importance_weights(); las filas pobres pesan razón. En ranger no
+#     se usa class.weights: en bosques de probabilidad solo entra en la regla de
+#     partición y deja P(pobre) igual.
+#   - prior (naivebayes): parsnip no le pasa case weights. Con pesos de clase
+#     n_no_pobre / n_pobre las dos clases pesan lo mismo y las verosimilitudes
+#     condicionales no cambian, así que el equivalente exacto es un prior uniforme.
+#   - ninguno: el motor no tiene un mecanismo verificado.
+# Argumentos: motor = nombre del motor de parsnip;
+#   razon_pesos = n_no_pobre / n_pobre (calcular_razon_pesos()), o NULL sin pesos.
+# Devuelve: lista con mecanismo y valor (NULL si no aplica). Sin razon_pesos,
+#   mecanismo = "sin_pesos".
 peso_pobre_motor <- function(motor, razon_pesos = NULL) {
-  hay_pesos <- !is.null(razon_pesos)
-  switch(
+  mecanismo <- switch(
     motor,
-    xgboost  = if (hay_pesos) razon_pesos else 1,
-    lightgbm = if (hay_pesos) 1 / razon_pesos else 1,
-    ranger   = if (hay_pesos) c(razon_pesos, 1) else NULL,
-    stop("Motor sin regla de pesos: ", motor)
+    xgboost = , lightgbm = "scale_pos_weight",
+    ranger = , rpart = , glm = , glmnet = "case_weights",
+    naivebayes = "prior",
+    "ninguno"
   )
+  if (is.null(razon_pesos)) return(list(mecanismo = "sin_pesos", valor = NULL))
+
+  valor <- switch(
+    mecanismo,
+    scale_pos_weight = if (motor == "xgboost") razon_pesos else 1 / razon_pesos,
+    case_weights = razon_pesos,
+    prior = c(0.5, 0.5),  # orden de los niveles: (pobre, no_pobre)
+    NULL
+  )
+  list(mecanismo = mecanismo, valor = valor)
+}
+
+# Agrega la columna de pesos por fila (importance_weights): razón para los
+# pobres y 1 para los demás. La receta le asigna el rol case_weights sola.
+# Argumentos: datos = base con pobre; razon_pesos; columna = nombre de la columna.
+# Devuelve: la base con la columna agregada.
+agregar_pesos_caso <- function(datos, razon_pesos, columna = "peso_caso") {
+  datos[[columna]] <- hardhat::importance_weights(if_else(datos$pobre == "pobre", razon_pesos, 1))
+  datos
+}
+
+# Workflow con la receta y el modelo, y los pesos por fila si los hay.
+# Argumentos: receta; modelo = especificación parsnip;
+#   columna_pesos = nombre de la columna de pesos, o NULL.
+# Devuelve: workflow sin ajustar.
+crear_flujo <- function(receta, modelo, columna_pesos = NULL) {
+  flujo <- workflow() |> add_recipe(receta) |> add_model(modelo)
+  if (!is.null(columna_pesos)) flujo <- flujo |> add_case_weights(all_of(columna_pesos))
+  flujo
 }
 
 # Tamaño de grilla según el modo: en MODO_RAPIDO todo se reduce para validar.
@@ -148,9 +194,21 @@ especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
   n_arboles_rf <- tamano_grilla(500, 100)
   # Los motores con hilos corren los folds en secuencia y usan todos los núcleos
   hilos <- N_NUCLEOS
-  pesos_rf            <- peso_pobre_motor("ranger", razon_pesos)
-  peso_pobre_xgboost  <- peso_pobre_motor("xgboost", razon_pesos)
-  peso_pobre_lightgbm <- peso_pobre_motor("lightgbm", razon_pesos)
+
+  motor <- unname(MOTOR_POR_ALGORITMO[nombre])
+  if (is.na(motor)) stop("Algoritmo desconocido: ", nombre)
+  pesos <- peso_pobre_motor(motor, razon_pesos)
+  if (pesos$mecanismo == "ninguno") {
+    warning(
+      "El motor ", motor, " no tiene un mecanismo de pesos de clase que mueva P(pobre): ",
+      "el candidato queda con pesos_aplicados = FALSE y no compite en el nivel 5",
+      call. = FALSE
+    )
+  }
+  # Los mecanismos que viven en el motor se inyectan aquí; case_weights va en
+  # los datos y en el workflow (ver correr_candidato_escalera())
+  peso_motor <- if (pesos$mecanismo == "scale_pos_weight") pesos$valor else 1
+  prior_nb <- if (pesos$mecanismo == "prior") pesos$valor else NULL
 
   especificacion <- switch(
     nombre,
@@ -191,8 +249,7 @@ especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
       algoritmo = "Random Forest",
       modelo = rand_forest(mtry = tune(), min_n = tune(), trees = !!n_arboles_rf) |>
         set_engine(
-          "ranger", importance = "impurity", seed = !!semilla, num.threads = !!hilos,
-          class.weights = !!pesos_rf
+          "ranger", importance = "impurity", seed = !!semilla, num.threads = !!hilos
         ) |>
         set_mode("classification"),
       grilla = grid_space_filling(
@@ -207,7 +264,7 @@ especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
     xgboost = list(
       algoritmo = "Boosting",
       modelo = boost_tree(trees = tune(), tree_depth = tune(), learn_rate = tune()) |>
-        set_engine("xgboost", nthread = !!hilos, scale_pos_weight = !!peso_pobre_xgboost) |>
+        set_engine("xgboost", nthread = !!hilos, scale_pos_weight = !!peso_motor) |>
         set_mode("classification"),
       grilla = grid_space_filling(
         trees(range = c(200, tamano_grilla(1000, 300))),
@@ -222,7 +279,7 @@ especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
     naive_bayes = list(
       algoritmo = "Naive Bayes",
       modelo = naive_Bayes(smoothness = tune(), Laplace = tune()) |>
-        set_engine("naivebayes"),
+        set_engine("naivebayes", prior = !!prior_nb),
       grilla = grid_regular(
         smoothness(range = c(0.5, 1.5)),
         Laplace(range = c(0, 3)),
@@ -240,7 +297,7 @@ especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
         set_engine(
           "lightgbm", num_threads = !!hilos, verbose = -1, seed = !!semilla,
           counts = FALSE,  # mtry como proporción de columnas
-          scale_pos_weight = !!peso_pobre_lightgbm
+          scale_pos_weight = !!peso_motor
         ) |>
         set_mode("classification"),
       grilla = grid_space_filling(
@@ -266,6 +323,10 @@ especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
   )
 
   especificacion$nombre <- nombre
+  especificacion$mecanismo_pesos <- pesos$mecanismo
+  especificacion$peso_caso <- if (pesos$mecanismo == "case_weights") pesos$valor
+  # NA: no se pidieron pesos; FALSE: se pidieron pero el motor no los aplica
+  especificacion$pesos_aplicados <- if (is.null(razon_pesos)) NA else pesos$mecanismo != "ninguno"
   especificacion
 }
 
@@ -465,13 +526,19 @@ describir_hiperparametros <- function(hiperparametros) {
 #   configuraciones  = tibble de configuraciones para tipo "manual"
 #   parallel_over    = estrategia de paralelización de tune
 #   balanceo, variables, busqueda = metadatos para el leaderboard
+#   columna_pesos    = columna de pesos por fila (case_weights) o NULL
+#   mecanismo_pesos, pesos_aplicados = salida de especificar_algoritmo(); quedan
+#                      guardados para que un balanceo con pesos que el motor no
+#                      aplica no se reporte como si hubiera competido
 # Devuelve: lista con hiperparámetros, umbral, métricas CV y holdout, predicciones
 #   OOF/holdout/test e importancia de variables.
 evaluar_candidato <- function(nombre, nivel, algoritmo, especificacion, particion, folds,
                               receta = NULL, modelo = NULL, grilla = NULL,
                               ajustar_predecir = NULL, configuraciones = NULL,
                               parallel_over = "everything", balanceo = "ninguno",
-                              variables = character(), busqueda = "sin hiperparámetros") {
+                              variables = character(), busqueda = "sin hiperparámetros",
+                              columna_pesos = NULL, mecanismo_pesos = "sin_pesos",
+                              pesos_aplicados = NA) {
   ruta_resultado <- file.path(RUTA_MODELOS, paste0(nombre, ".rds"))
   if (file.exists(ruta_resultado)) {
     message("[", nombre, "] cargado desde ", basename(ruta_resultado))
@@ -486,7 +553,7 @@ evaluar_candidato <- function(nombre, nivel, algoritmo, especificacion, particio
 
   # 1. Predicciones fuera de fold sobre el 80%
   oof <- if (es_tidymodels) {
-    flujo <- workflow() |> add_recipe(receta) |> add_model(modelo)
+    flujo <- crear_flujo(receta, modelo, columna_pesos)
     obtener_oof_tidymodels(flujo, folds, grilla, parallel_over)
   } else {
     obtener_oof_manual(ajustar_predecir, folds, configuraciones)
@@ -538,6 +605,8 @@ evaluar_candidato <- function(nombre, nivel, algoritmo, especificacion, particio
     algoritmo = algoritmo,
     especificacion = especificacion,
     balanceo = balanceo,
+    mecanismo_pesos = mecanismo_pesos,
+    pesos_aplicados = pesos_aplicados,
     variables = variables,
     busqueda = busqueda,
     n_configuraciones = nrow(seleccion$tabla),
@@ -684,7 +753,8 @@ metricas_tuning <- metric_set(f_meas, precision, recall, roc_auc)
 #   Argumentos nuevos (opcionales; sin ellos la función se comporta como antes):
 #   datos_holdout  = si no es NULL, usa el esquema con holdout de evaluar_candidato():
 #                    datos_train es el 80% y el reajuste final usa train + holdout
-#   nivel, nombre, balanceo, variables, busqueda, parallel_over = ver evaluar_candidato()
+#   nivel, nombre, balanceo, variables, busqueda, parallel_over, columna_pesos,
+#   mecanismo_pesos, pesos_aplicados = ver evaluar_candidato()
 # Devuelve: lista con mejores hiperparámetros, umbral, métricas CV y modelo final
 #   (o la salida de evaluar_candidato() si hay holdout).
 correr_algoritmo <- function(algoritmo, modelo, receta, folds, grilla,
@@ -692,7 +762,9 @@ correr_algoritmo <- function(algoritmo, modelo, receta, folds, grilla,
                              datos_holdout = NULL, nivel = NA_character_, nombre = NULL,
                              balanceo = "ninguno", variables = character(),
                              busqueda = "sin hiperparámetros",
-                             parallel_over = "everything") {
+                             parallel_over = "everything",
+                             columna_pesos = NULL, mecanismo_pesos = "sin_pesos",
+                             pesos_aplicados = NA) {
   if (!is.null(datos_holdout)) {
     particion <- list(
       entrenamiento = datos_train,
@@ -705,7 +777,8 @@ correr_algoritmo <- function(algoritmo, modelo, receta, folds, grilla,
       nivel = nivel, algoritmo = algoritmo, especificacion = especificacion,
       particion = particion, folds = folds, receta = receta, modelo = modelo,
       grilla = grilla, parallel_over = parallel_over, balanceo = balanceo,
-      variables = variables, busqueda = busqueda
+      variables = variables, busqueda = busqueda, columna_pesos = columna_pesos,
+      mecanismo_pesos = mecanismo_pesos, pesos_aplicados = pesos_aplicados
     ))
   }
 

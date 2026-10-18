@@ -20,10 +20,15 @@ id_ganador <- str_remove(ganador_nivel_4$nombre, "^n4_")
 message("Mejor algoritmo del nivel 4 (F1 CV): ", id_ganador)
 
 walk(c("smote", "submuestreo", "pesos"), function(estrategia) {
-  correr_candidato_escalera(
+  resultado <- correr_candidato_escalera(
     id_ganador, paste0("n5_", id_ganador, "_", estrategia), "5", niveles$nivel_3,
     particion, folds, balanceo = estrategia
   )
+  # Un peso que el motor no aplica sería un empate por construcción, no evidencia
+  if (isFALSE(resultado$pesos_aplicados)) {
+    warning(resultado$nombre, ": el motor no aplica pesos de clase; ",
+            "no cuenta como estrategia comparada en el nivel 5", call. = FALSE)
+  }
 })
 
 plan(sequential)

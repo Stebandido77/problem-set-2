@@ -41,6 +41,12 @@ PROPORCION_HOLDOUT <- 0.2
 # Brecha F1_cv - F1_holdout a partir de la cual se marca sobreajuste
 UMBRAL_SOBREAJUSTE <- 0.02
 
+# Top 3 para Kaggle elegido a mano, en orden de posición. n3_logit no entra por
+# F1 (hay modelos con más F1 en holdout): entra por interpretabilidad, como
+# benchmark lineal para la discusión de política. Con NULL, elegir_top3() aplica
+# la regla automática (un representante por algoritmo según el F1 en holdout).
+TOP3_MANUAL <- c("n6_lightgbm", "n4_random_forest", "n3_logit")
+
 # Paralelismo. Hay dos fuentes y se usan según el algoritmo (ver
 # configurar_paralelismo() en funciones/escalera.R):
 #   - Hilos del motor (ranger, xgboost, lightgbm): los folds corren en secuencia y

@@ -14,19 +14,18 @@ leaderboard <- construir_leaderboard(resultados)
 # (python/etapa4_leaderboard.py). Entran al CSV del leaderboard, que leen 09 y 10;
 # el resto de este script (top 3, validación, bitácora, escalera) trabaja con los
 # candidatos de R, que son los que tienen .rds.
+# Las filas del nivel 7 se pegan tal como las escribió Python: si pasaran por
+# read_csv() y write_csv(), R reimprimiría sus decimales y el CSV cambiaría en
+# cada corrida sin que cambie ningún resultado.
 ruta_nivel7 <- file.path(RUTA_RESULTADOS, "leaderboard_nivel7.csv")
-leaderboard_completo <- if (file.exists(ruta_nivel7)) {
-  nivel7 <- read_csv(ruta_nivel7, show_col_types = FALSE, col_types = cols(
-    nivel = col_character(), pesos_aplicados = col_logical(),
-    archivo_submission = col_character(), tiempo_min = col_double()
-  ))
+ruta_leaderboard <- file.path(RUTA_RESULTADOS, "leaderboard_interno.csv")
+write_csv(leaderboard, ruta_leaderboard)
+if (file.exists(ruta_nivel7)) {
+  lineas_nivel7 <- read_lines(ruta_nivel7)
   stopifnot("leaderboard_nivel7.csv no tiene las columnas del leaderboard" =
-              identical(names(nivel7), names(leaderboard)))
-  bind_rows(leaderboard, nivel7)
-} else {
-  leaderboard
+              identical(str_split_1(lineas_nivel7[1], ","), names(leaderboard)))
+  write_lines(lineas_nivel7[-1], ruta_leaderboard, append = TRUE)
 }
-write_csv(leaderboard_completo, file.path(RUTA_RESULTADOS, "leaderboard_interno.csv"))
 
 # Versión compacta para las slides
 leaderboard |>
@@ -52,6 +51,7 @@ if (nrow(con_sobreajuste) > 0) {
 # ---- Top 3 para Kaggle -------------------------------------------------------
 # Cada candidato ya se reajustó sobre el 100% del train con sus hiperparámetros
 # y su umbral OOF (evaluar_candidato()); aquí se copian y se validan sus CSV.
+# La elección es la de TOP3_MANUAL (00_configuracion.R) si no es NULL.
 seleccion <- elegir_top3(leaderboard, resultados)
 carpeta_candidatos <- file.path(RUTA_SUBMISSIONS, "candidatos")
 carpeta_top3 <- file.path(RUTA_SUBMISSIONS, "top3")

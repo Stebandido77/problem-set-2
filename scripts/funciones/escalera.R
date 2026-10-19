@@ -351,19 +351,32 @@ construir_leaderboard <- function(resultados) {
     arrange(desc(f1_holdout))
 }
 
-# Elige los n mejores candidatos para Kaggle recorriendo el ranking por F1 en
-# holdout, con un solo representante por algoritmo (el stacking cuenta como
-# familia propia): XGBoost con y sin balanceo, o XGBoost vs. LightGBM, son
-# variaciones del mismo Boosting, y subir tres de ellas no enseña nada en Kaggle.
-# Para cada salto se reporta qué tanto coincide con el elegido en el holdout.
-# Las reglas naive no entran, ni un candidato con pesos de clase que su motor
-# no aplica (pesos_aplicados = FALSE).
-# Argumentos: leaderboard; resultados = lista de candidatos; n = cuántos elegir.
+# Elige los n candidatos para Kaggle. Si hay una elección manual (TOP3_MANUAL en
+# 00_configuracion.R), la usa tal cual, en su orden. Si es NULL, recorre el
+# ranking por F1 en holdout con un solo representante por algoritmo (el stacking
+# cuenta como familia propia): XGBoost con y sin balanceo, o XGBoost vs. LightGBM,
+# son variaciones del mismo Boosting, y subir tres de ellas no enseña nada en
+# Kaggle. Para cada salto se reporta qué tanto coincide con el elegido en el
+# holdout. Las reglas naive no entran, ni un candidato con pesos de clase que su
+# motor no aplica (pesos_aplicados = FALSE).
+# Argumentos: leaderboard; resultados = lista de candidatos; n = cuántos elegir;
+#   manual = vector de candidatos elegidos a mano o NULL.
 # Devuelve: lista con top (posición, candidato) y saltados (con su concordancia).
-elegir_top3 <- function(leaderboard, resultados, n = 3) {
+elegir_top3 <- function(leaderboard, resultados, n = 3, manual = TOP3_MANUAL) {
+  saltados <- tibble(candidato = character(), parecido_a = character(), concordancia = numeric())
+
+  if (!is.null(manual)) {
+    faltan <- setdiff(manual, leaderboard$candidato)
+    if (length(faltan) > 0) {
+      stop("TOP3_MANUAL tiene candidatos que no están en el leaderboard: ",
+           paste(faltan, collapse = ", "), call. = FALSE)
+    }
+    return(list(top = tibble(posicion = seq_along(manual), candidato = manual),
+                saltados = saltados))
+  }
+
   ranking <- leaderboard |> filter(algoritmo != "Regla", !(pesos_aplicados %in% FALSE))
   elegidos <- character()
-  saltados <- tibble(candidato = character(), parecido_a = character(), concordancia = numeric())
 
   for (candidato in ranking$candidato) {
     if (length(elegidos) == n) break
@@ -429,8 +442,9 @@ graficar_escalera <- function(leaderboard) {
 
 # Escribe la bitácora de Kaggle con una fila por CSV de candidato de R. Conserva
 # todo lo que no genera este script: las columnas anotadas a mano (f1_kaggle,
-# orden_subida, ...), la fecha en que cada archivo entró a la bitácora y las
-# filas de otros orígenes (p. ej. el nivel 7 en Python, archivos nivel7/*.csv).
+# orden_subida, ...), la fecha en que cada archivo entró a la bitácora, el orden
+# de las filas y las filas de otros orígenes (p. ej. el nivel 7 en Python,
+# archivos nivel7/*.csv).
 # Argumentos: leaderboard = candidatos de R; top = salida $top de elegir_top3().
 # Devuelve: la bitácora (invisible).
 actualizar_bitacora <- function(leaderboard, top) {
@@ -464,7 +478,9 @@ actualizar_bitacora <- function(leaderboard, top) {
                             as.character(Sys.Date())))
   if (!"f1_kaggle" %in% names(bitacora)) bitacora$f1_kaggle <- NA_character_
 
+  # Las filas que ya estaban conservan su orden; las nuevas van al final
   bitacora <- bind_rows(bitacora, previa |> filter(!archivo %in% bitacora$archivo)) |>
+    arrange(is.na(match(archivo, previa$archivo)), match(archivo, previa$archivo)) |>
     relocate(fecha) |>
     relocate(any_of(names(previa)))
 

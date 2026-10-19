@@ -98,7 +98,9 @@ Cada candidato de la escalera escribe su CSV en `stores/submissions/candidatos/`
 guardado en `stores/modelos/`; si la corrida se cae, al volver a correr se cargan los ya
 terminados. `08_leaderboard.R` arma `stores/resultados/leaderboard_interno.csv` (le une las
 filas del nivel 7 desde `leaderboard_nivel7.csv`), copia los tres elegidos a
-`stores/submissions/top3/` y actualiza `bitacora_kaggle.csv`: conserva lo anotado a mano
+`stores/submissions/top3/` (los de `TOP3_MANUAL` en `00_configuracion.R`: n6_lightgbm,
+n4_random_forest y n3_logit, este último por interpretabilidad; con `NULL` se usa la regla
+automática de un representante por algoritmo) y actualiza `bitacora_kaggle.csv`: conserva lo anotado a mano
 (`f1_kaggle`, `orden_subida`) y las filas del nivel 7. Después de subir a Kaggle, anoten el
 F1 público a mano. El mejor modelo se elige siempre por F1 en holdout, nunca por el público.
 

@@ -17,6 +17,8 @@ Cada auxiliar se identifica por el conjunto de grupos con que se entrenó; los
 que se repiten entre contextos se ajustan una sola vez (23 ajustes en total).
 """
 
+import shutil
+
 import pandas as pd
 
 from configuracion import RUTA_NIVEL7
@@ -64,7 +66,18 @@ def planear_ajustes(contextos):
     return plan
 
 
-def predecir_anidado(ajustar_predecir, grupos, nombre, contextos=None):
+def guardar_parquet_atomico(tabla, ruta):
+    """Escribe un parquet en un temporal y lo renombra, para que un corte a mitad
+    de escritura nunca deje un archivo corrupto con el nombre definitivo.
+
+    Argumentos: tabla = DataFrame; ruta = destino.
+    """
+    temporal = ruta.with_suffix(".tmp")
+    tabla.to_parquet(temporal)
+    temporal.replace(ruta)
+
+
+def predecir_anidado(ajustar_predecir, grupos, nombre, contextos=None, ruta_parcial=None):
     """Corre el plan de auxiliares y arma las variables de cada contexto.
 
     Argumentos:
@@ -73,6 +86,9 @@ def predecir_anidado(ajustar_predecir, grupos, nombre, contextos=None):
       grupos   = asignar_grupos(particion)
       nombre   = etiqueta para el log (None no escribe en el log)
       contextos = definir_contextos() por defecto
+      ruta_parcial = carpeta donde se guarda cada ajuste al terminarlo; si el
+                     ajuste ya está ahí se lee en vez de recalcularlo (reanudar
+                     tras un corte). None no guarda nada.
     Devuelve: (variables, registro)
       variables = {contexto: DataFrame indexado por id con entrenamiento + evaluación}
       registro  = DataFrame (contexto, rol, id, grupo, grupos_modelo) para auditar fugas
@@ -90,9 +106,21 @@ def predecir_anidado(ajustar_predecir, grupos, nombre, contextos=None):
         ids_entrenamiento = grupos.index[grupos.isin(modelo)]
         ids_prediccion = grupos.index[grupos.isin(grupos_pedidos)]
         assert not set(grupos_pedidos) & set(modelo), "un auxiliar predice un grupo que vio"
-        predicciones[modelo] = ajustar_predecir(ids_entrenamiento, ids_prediccion)
+        parcial = None
+        if ruta_parcial is not None:
+            etiqueta = "-".join(str(g) for g in sorted(modelo))
+            parcial = ruta_parcial / f"modelo_{etiqueta}__pred_{'-'.join(str(g) for g in sorted(grupos_pedidos))}.parquet"
+        if parcial is not None and parcial.exists():
+            predicciones[modelo] = pd.read_parquet(parcial)
+            evento = "desde caché parcial"
+        else:
+            predicciones[modelo] = ajustar_predecir(ids_entrenamiento, ids_prediccion)
+            if parcial is not None:
+                ruta_parcial.mkdir(parents=True, exist_ok=True)
+                guardar_parquet_atomico(predicciones[modelo], parcial)
+            evento = "listo"
         if nombre:
-            registrar_log(nombre, f"auxiliar {i + 1}/{len(pedidos)} grupos {sorted(modelo)}")
+            registrar_log(nombre, f"auxiliar {i + 1}/{len(pedidos)} grupos {sorted(modelo)} {evento}")
 
     variables, registro = {}, []
     for contexto in contextos:
@@ -149,9 +177,13 @@ def cargar_o_calcular_anidado(nombre, ajustar_predecir, grupos):
         tabla = pd.read_parquet(ruta)
         registro = pd.read_parquet(ruta_registro)
     else:
-        variables, registro = predecir_anidado(ajustar_predecir, grupos, nombre)
+        # Cada ajuste se guarda al terminar en parciales/<nombre>/; si el proceso
+        # se corta, la siguiente corrida retoma desde el último ajuste guardado
+        ruta_parcial = RUTA_NIVEL7 / "parciales" / nombre
+        variables, registro = predecir_anidado(ajustar_predecir, grupos, nombre, ruta_parcial=ruta_parcial)
         tabla = pd.concat([v.assign(contexto=c) for c, v in variables.items()]).rename_axis("id").reset_index()
-        tabla.to_parquet(ruta, index=False)
-        registro.to_parquet(ruta_registro, index=False)
+        guardar_parquet_atomico(registro, ruta_registro)
+        guardar_parquet_atomico(tabla, ruta)
+        shutil.rmtree(ruta_parcial, ignore_errors=True)
     verificar_sin_fuga(registro, grupos)
     return {c: g.drop(columns="contexto").set_index("id") for c, g in tabla.groupby("contexto")}

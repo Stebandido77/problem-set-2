@@ -3,6 +3,7 @@ evaluar_candidato() en R: predicciones OOF en los 5 folds del 80%, umbral
 elegido en OOF, F1 en holdout (reajuste sobre el 80%) y, si se pide, reajuste
 sobre el 100% del train para predecir el test."""
 
+import shutil
 import time
 
 import lightgbm as lgb
@@ -10,7 +11,7 @@ import numpy as np
 import pandas as pd
 
 from configuracion import CIUDADES_PEOR_F1, N_HILOS, RUTA_NIVEL7, SEMILLA
-from funciones.anidado import definir_contextos
+from funciones.anidado import definir_contextos, guardar_parquet_atomico
 from funciones.bitacora import registrar_log
 from funciones.datos import imputar_mediana
 from funciones.metricas import buscar_umbral_f1, calcular_metricas, metricas_por_fold
@@ -44,7 +45,7 @@ def armar_contexto(matriz, dinamicas, contexto, ids):
 
 
 def evaluar_candidato(nombre, matriz, particion, parametros, dinamicas=(), con_test=False,
-                      semillas=(SEMILLA,), guardar=True):
+                      semillas=(SEMILLA,), guardar=True, reanudable=False):
     """CV + umbral OOF + holdout (+ test) de un LightGBM con parámetros fijos.
 
     Argumentos:
@@ -56,6 +57,10 @@ def evaluar_candidato(nombre, matriz, particion, parametros, dinamicas=(), con_t
       con_test   = si True reajusta sobre el 100% y predice el test
       semillas   = varias semillas promedian las probabilidades (seed bagging)
       guardar    = escribe las predicciones en stores/procesados/nivel7/
+      reanudable = guarda la predicción de cada fold (y holdout y test) al
+                   terminarlo en parciales/<nombre>/ y, si ya existe, la lee en
+                   vez de reajustar; quien llama la borra con borrar_parciales()
+                   cuando ya no la necesita
     Devuelve: diccionario con métricas, umbral y predicciones.
     """
     inicio = time.time()
@@ -64,7 +69,13 @@ def evaluar_candidato(nombre, matriz, particion, parametros, dinamicas=(), con_t
     grupos_contexto = definir_contextos()
     y = tabla["pobre"]
 
+    ruta_parcial = RUTA_NIVEL7 / "parciales" / nombre
+
     def ajustar_predecir(contexto):
+        parcial = ruta_parcial / f"{contexto}.parquet"
+        if reanudable and parcial.exists():
+            registrar_log(nombre, f"{contexto} desde caché parcial")
+            return pd.read_parquet(parcial)["probabilidad"], None
         entrenamiento, evaluacion = grupos_contexto[contexto]
         ids_ent = tabla.index[en_grupos(tabla, entrenamiento)]
         ids_eval = tabla.index[en_grupos(tabla, evaluacion)]
@@ -75,7 +86,11 @@ def evaluar_candidato(nombre, matriz, particion, parametros, dinamicas=(), con_t
         for semilla in semillas:
             modelo = ajustar_lightgbm(x_ent, y.loc[ids_ent].to_numpy(), parametros, semilla)
             probabilidad += modelo.predict(x_eval) / len(semillas)
-        return pd.Series(probabilidad, index=ids_eval), modelo
+        probabilidad = pd.Series(probabilidad, index=ids_eval, name="probabilidad")
+        if reanudable:
+            ruta_parcial.mkdir(parents=True, exist_ok=True)
+            guardar_parquet_atomico(probabilidad.to_frame(), parcial)
+        return probabilidad, modelo
 
     # 1. OOF en los 5 folds del 80%
     oof = []
@@ -100,8 +115,10 @@ def evaluar_candidato(nombre, matriz, particion, parametros, dinamicas=(), con_t
         "nombre": nombre, "umbral": umbral, **metricas_cv,
         **{f"{k}_holdout": v for k, v in metricas_holdout.items()},
         "oof": oof, "prediccion_holdout": prob_holdout,
-        "importancia": pd.Series(modelo_holdout.feature_importance("gain"),
-                                 index=modelo_holdout.feature_name()),
+        # Si el holdout salió de la caché parcial no hay modelo para la importancia
+        "importancia": (pd.Series(modelo_holdout.feature_importance("gain"),
+                                  index=modelo_holdout.feature_name())
+                        if modelo_holdout is not None else pd.Series(dtype=float)),
     }
 
     # 4. Reajuste sobre el 100% y test
@@ -115,6 +132,11 @@ def evaluar_candidato(nombre, matriz, particion, parametros, dinamicas=(), con_t
         guardar_predicciones(resultado)
     registrar_log(nombre, f"F1 CV {metricas_cv['f1_cv']:.4f} | holdout {metricas_holdout['f1']:.4f}", inicio)
     return resultado
+
+
+def borrar_parciales(nombre):
+    """Borra la caché parcial (por fold) de un candidato evaluado con reanudable=True."""
+    shutil.rmtree(RUTA_NIVEL7 / "parciales" / nombre, ignore_errors=True)
 
 
 def en_grupos(tabla, grupos):

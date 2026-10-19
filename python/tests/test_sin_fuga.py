@@ -54,7 +54,53 @@ def test_verificador_detecta_una_fuga():
         verificar_sin_fuga(registro, grupos)
 
 
-@pytest.mark.parametrize("nombre", ["ingreso_personas", "ingreso_hogar", "ingreso_total_personas"])
+def test_reanudar_desde_parciales_no_cambia_ni_filtra(tmp_path):
+    """Una corrida cortada y retomada desde parciales/ da lo mismo que una entera,
+    y el auxiliar espía sigue sin predecir hogares que vio."""
+    grupos = asignar_grupos(particion_sintetica())
+    llamadas = []
+
+    def espia(ids_entrenamiento, ids_prediccion):
+        llamadas.append(1)
+        if len(llamadas) == 5:
+            raise KeyboardInterrupt("corte simulado")
+        vistos = set(ids_entrenamiento)
+        return pd.DataFrame({"visto": [float(i in vistos) for i in ids_prediccion]},
+                            index=pd.Index(ids_prediccion, name="id"))
+
+    with pytest.raises(KeyboardInterrupt):
+        predecir_anidado(espia, grupos, None, ruta_parcial=tmp_path)
+    assert len(list(tmp_path.glob("*.parquet"))) == 4
+    assert not list(tmp_path.glob("*.tmp")), "quedó un parcial a medio escribir"
+
+    variables, registro = predecir_anidado(espia, grupos, None, ruta_parcial=tmp_path)
+    completas, _ = predecir_anidado(espia, grupos, None)
+    for contexto, tabla in variables.items():
+        assert (tabla["visto"] == 0).all()
+        pd.testing.assert_frame_equal(tabla, completas[contexto])
+    assert verificar_sin_fuga(registro, grupos)
+
+
+def test_contexto_de_hogar_del_auxiliar_v3_no_trae_ingresos():
+    """Las variables de hogar que se pegan a las personas en el auxiliar v3 no
+    incluyen ninguna columna de ingreso (que solo existe en train)."""
+    from funciones.datos import cargar_hogares, cargar_personas
+    from funciones.variables import construir_grupos
+    try:
+        personas, hogar = cargar_personas(), cargar_hogares()
+    except FileNotFoundError:
+        pytest.skip("faltan las bases procesadas del nivel 7")
+    bloques = construir_grupos(personas, hogar)
+    columnas = set(bloques["nivel_3"].columns) | set(bloques["laborales"].columns)
+    ingresos = set(pd.read_parquet(RUTA_NIVEL7.parent / "ingreso_personas_train.parquet").columns)
+    ingresos |= set(pd.read_parquet(RUTA_NIVEL7.parent / "ingreso_hogar_train.parquet").columns)
+    ingresos -= {"id", "Orden"}
+    assert not columnas & ingresos, f"columnas de ingreso en el contexto: {columnas & ingresos}"
+    assert not [c for c in columnas if c.lower().startswith(("ing", "log_ingreso"))]
+
+
+@pytest.mark.parametrize("nombre", ["ingreso_personas", "ingreso_hogar", "ingreso_total_personas",
+                                    "ingreso_fuentes_v3", "ingreso_cuantiles_v3"])
 def test_registro_real_sin_fuga(nombre):
     ruta = RUTA_NIVEL7 / f"registro_{nombre}.parquet"
     if not ruta.exists():

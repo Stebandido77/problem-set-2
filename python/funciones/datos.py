@@ -55,6 +55,35 @@ def cargar_ingreso_personas():
     return ingreso[["id", "Orden", "ingreso_laboral", "ingreso_total"]]
 
 
+# Pesos por mes por debajo de los cuales "otros" se considera residuo de redondeo
+RESIDUO_MINIMO_OTROS = 1000
+
+
+def cargar_ingreso_fuentes():
+    """Ingreso individual de train separado por fuente (objetivo del auxiliar v3).
+
+    laboral = como en cargar_ingreso_personas(); pensiones = Iof2; arriendos =
+    Iof6; transferencias = ayudas de otros hogares e instituciones (Iof3h + Iof3i);
+    otros = lo que falta para llegar a Ingtot (intereses Iof1, cesantías, primas,
+    imputaciones). Las cinco suman Ingtot, salvo que "otros" por debajo de
+    RESIDUO_MINIMO_OTROS se lleva a cero: el 22% de sus valores positivos son
+    residuos de la resta (centavos), que en log tienen una desviación de ~14 y
+    disparan el modelo de dos partes.
+    Devuelve: DataFrame con id, Orden y una columna por fuente (pesos por mes).
+    """
+    ingreso = pd.read_parquet(RUTA_PROCESADOS / "ingreso_personas_train.parquet")
+    componentes = ["Impa", "Isa", "Ie", "Imdi", "Impaes", "Isaes", "Iees", "Imdies"]
+    fuentes = pd.DataFrame({
+        "laboral": ingreso[componentes].fillna(0).sum(axis=1),
+        "pensiones": ingreso["Iof2"].fillna(0),
+        "arriendos": ingreso["Iof6"].fillna(0),
+        "transferencias": ingreso["Iof3h"].fillna(0) + ingreso["Iof3i"].fillna(0),
+    })
+    otros = ingreso["Ingtot"].fillna(0) - fuentes.sum(axis=1)
+    fuentes["otros"] = otros.where(otros >= RESIDUO_MINIMO_OTROS, 0)
+    return pd.concat([ingreso[["id", "Orden"]], fuentes], axis=1)
+
+
 def cargar_ingreso_hogar():
     """Ingreso per cápita de la unidad de gasto (solo train) y su razón con Lp.
 

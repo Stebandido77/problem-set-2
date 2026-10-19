@@ -31,13 +31,15 @@ def validar_submission(submission, ids_test):
     return tasa
 
 
-def guardar_submission(resultado, nombre_archivo, ids_test, especificacion, registrar=True):
+def guardar_submission(resultado, nombre_archivo, ids_test, especificacion, registrar=True,
+                       algoritmo="Boosting"):
     """Escribe el CSV de Kaggle de un candidato y lo agrega a la bitácora.
 
     Argumentos: resultado = evaluar_candidato(con_test=True); nombre_archivo = CSV
         dentro de stores/submissions/nivel7/; ids_test = ids del test;
         especificacion = descripción corta; registrar = agrega fila a la bitácora
-        con f1_kaggle vacía (se llena a mano al subir).
+        con f1_kaggle vacía (se llena a mano al subir); algoritmo = nombre del
+        algoritmo en la bitácora (lista del curso).
     Devuelve: (ruta del CSV, tasa de pobres predicha).
     """
     clases = (resultado["prediccion_test"] >= resultado["umbral"]).astype(np.int64)
@@ -51,7 +53,7 @@ def guardar_submission(resultado, nombre_archivo, ids_test, especificacion, regi
         bitacora = pd.read_csv(RUTA_BITACORA, dtype=str)
         fila = {
             "fecha": date.today().isoformat(), "archivo": f"nivel7/{nombre_archivo}",
-            "nivel": "7", "candidato": resultado["nombre"], "algoritmo": "Boosting",
+            "nivel": "7", "candidato": resultado["nombre"], "algoritmo": algoritmo,
             "especificacion": especificacion,
             "f1_cv": f"{resultado['f1_cv']:.4f}", "f1_holdout": f"{resultado['f1_holdout']:.4f}",
         }

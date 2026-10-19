@@ -3,21 +3,22 @@ auxiliares de ingreso (desde la caché de stores/procesados/nivel7/)."""
 
 import pandas as pd
 
-from funciones.anidado import asignar_grupos, cargar_o_calcular_anidado
-from funciones.auxiliares import crear_auxiliar_personas
-from funciones.datos import (cargar_hogares, cargar_ingreso_personas, cargar_particion,
-                             cargar_personas, preparar_matriz)
+from funciones.anidado import asignar_grupos, cargar_o_calcular_anidado, crear_perezoso
+from funciones.auxiliares import crear_auxiliar_fuentes, crear_auxiliar_personas
+from funciones.datos import (cargar_hogares, cargar_ingreso_fuentes, cargar_ingreso_personas,
+                             cargar_particion, cargar_personas, preparar_matriz)
 from funciones.variables import construir_grupos
 
 # Base ganadora de la etapa 1 (a4): nivel 3 + v2 sin Fex ni auxiliar de hogar
 BLOQUES_A4 = ["nivel_3", "laborales", "perceptor", "pequenos"]
 
 
-def cargar_insumos(auxiliar_total=False):
+def cargar_insumos(auxiliar_total=False, auxiliar_fuentes=False):
     """Carga todo lo que necesita un candidato del nivel 7.
 
     Argumentos: auxiliar_total = si True también arma el auxiliar de ingreso
-        total (sufijo _total), con la misma OOF anidada.
+        total (sufijo _total), con la misma OOF anidada; auxiliar_fuentes = si
+        True también carga el auxiliar v3 de dos partes por fuente (etapa 6).
     Devuelve: diccionario con particion, grupos, hogar, bloques y auxiliares
         ({nombre: {contexto: DataFrame}}).
     """
@@ -33,6 +34,12 @@ def cargar_insumos(auxiliar_total=False):
         auxiliares["total"] = cargar_o_calcular_anidado(
             "ingreso_total_personas",
             crear_auxiliar_personas(personas, ingreso, hogar, "ingreso_total", "_total"), grupos)
+    if auxiliar_fuentes:
+        contexto_hogar = pd.concat([bloques["nivel_3"], bloques["laborales"]], axis=1)
+        auxiliares["fuentes"] = cargar_o_calcular_anidado(
+            "ingreso_fuentes_v3",
+            crear_perezoso(lambda: crear_auxiliar_fuentes(personas, cargar_ingreso_fuentes(), hogar, contexto_hogar)),
+            grupos)
     return {"particion": particion, "grupos": grupos, "hogar": hogar,
             "bloques": bloques, "auxiliares": auxiliares}
 

@@ -44,53 +44,88 @@ def armar_contexto(matriz, dinamicas, contexto, ids):
     return pd.concat(partes, axis=1)
 
 
-def evaluar_candidato(nombre, matriz, particion, parametros, dinamicas=(), con_test=False,
-                      semillas=(SEMILLA,), guardar=True, reanudable=False):
-    """CV + umbral OOF + holdout (+ test) de un LightGBM con parámetros fijos.
+def crear_preparador(matriz, particion, dinamicas=()):
+    """Función preparar() que arma las matrices de un contexto del protocolo.
 
-    Argumentos:
-      nombre     = identificador del candidato (n7_...)
-      matriz     = predictores fijos en dummies, indexados por id (train + test)
-      particion  = cargar_particion()
-      parametros = hiperparámetros de LightGBM
-      dinamicas  = variables de auxiliares por contexto (predecir_anidado())
-      con_test   = si True reajusta sobre el 100% y predice el test
-      semillas   = varias semillas promedian las probabilidades (seed bagging)
-      guardar    = escribe las predicciones en stores/procesados/nivel7/
-      reanudable = guarda la predicción de cada fold (y holdout y test) al
-                   terminarlo en parciales/<nombre>/ y, si ya existe, la lee en
-                   vez de reajustar; quien llama la borra con borrar_parciales()
-                   cuando ya no la necesita
-    Devuelve: diccionario con métricas, umbral y predicciones.
+    Argumentos: matriz = predictores fijos indexados por id (train + test);
+        particion = cargar_particion(); dinamicas = variables de auxiliares por
+        contexto (predecir_anidado()).
+    Devuelve: función(contexto) -> (x_ent, y_ent, x_eval), con las x imputadas por
+        la mediana del entrenamiento del contexto e y_ent como arreglo de 0/1.
     """
-    inicio = time.time()
-    registrar_log(nombre, "inicio")
     tabla = particion.set_index("id")
     grupos_contexto = definir_contextos()
-    y = tabla["pobre"]
 
-    ruta_parcial = RUTA_NIVEL7 / "parciales" / nombre
-
-    def ajustar_predecir(contexto):
-        parcial = ruta_parcial / f"{contexto}.parquet"
-        if reanudable and parcial.exists():
-            registrar_log(nombre, f"{contexto} desde caché parcial")
-            return pd.read_parquet(parcial)["probabilidad"], None
+    def preparar(contexto):
         entrenamiento, evaluacion = grupos_contexto[contexto]
         ids_ent = tabla.index[en_grupos(tabla, entrenamiento)]
         ids_eval = tabla.index[en_grupos(tabla, evaluacion)]
         x_ent = armar_contexto(matriz, dinamicas, contexto, ids_ent)
         x_eval = armar_contexto(matriz, dinamicas, contexto, ids_eval)
         x_ent, x_eval = imputar_mediana(x_ent, x_eval)
-        probabilidad = np.zeros(len(ids_eval))
+        return x_ent, tabla.loc[ids_ent, "pobre"].astype(int).to_numpy(), x_eval
+
+    return preparar
+
+
+def crear_ajuste_lightgbm(parametros, semillas=(SEMILLA,)):
+    """Función ajustar() de LightGBM con seed bagging para evaluar_modelo().
+
+    Argumentos: parametros = hiperparámetros de LightGBM; semillas = semillas
+        cuyas probabilidades se promedian.
+    Devuelve: función(x_ent, y_ent, x_eval) -> (probabilidad, importancia), con la
+        importancia como gain promedio de las semillas.
+    """
+    def ajustar(x_ent, y_ent, x_eval):
+        probabilidad, ganancia = np.zeros(len(x_eval)), 0
         for semilla in semillas:
-            modelo = ajustar_lightgbm(x_ent, y.loc[ids_ent].to_numpy(), parametros, semilla)
+            modelo = ajustar_lightgbm(x_ent, y_ent, parametros, semilla)
             probabilidad += modelo.predict(x_eval) / len(semillas)
-        probabilidad = pd.Series(probabilidad, index=ids_eval, name="probabilidad")
+            ganancia = ganancia + pd.Series(modelo.feature_importance("gain"), index=x_ent.columns)
+        return probabilidad, ganancia / len(semillas)
+
+    return ajustar
+
+
+def evaluar_modelo(nombre, preparar, ajustar, particion, con_test=False, guardar=True, reanudable=False):
+    """CV + umbral OOF + holdout (+ test) de cualquier algoritmo, con el mismo
+    protocolo que evaluar_candidato() en R.
+
+    Argumentos:
+      nombre     = identificador del candidato (n7_...)
+      preparar   = función(contexto) -> (x_ent, y_ent, x_eval) (crear_preparador())
+      ajustar    = función(x_ent, y_ent, x_eval) -> (probabilidad, importancia o None)
+      particion  = cargar_particion()
+      con_test   = si True reajusta sobre el 100% y predice el test
+      guardar    = escribe las predicciones en stores/procesados/nivel7/
+      reanudable = guarda la predicción de cada fold (y holdout y test) al
+                   terminarlo en parciales/<nombre>/ y, si ya existe, la lee en
+                   vez de reajustar; quien llama la borra con borrar_parciales()
+                   cuando ya no la necesita
+    Devuelve: diccionario con métricas, umbral, predicciones e importancia del holdout.
+    """
+    inicio = time.time()
+    registrar_log(nombre, "inicio")
+    y = particion.set_index("id")["pobre"]
+    ruta_parcial = RUTA_NIVEL7 / "parciales" / nombre
+
+    def ajustar_predecir(contexto):
+        parcial = ruta_parcial / f"{contexto}.parquet"
+        parcial_importancia = ruta_parcial / f"{contexto}_importancia.parquet"
+        if reanudable and parcial.exists():
+            registrar_log(nombre, f"{contexto} desde caché parcial")
+            importancia = (pd.read_parquet(parcial_importancia)["importancia"]
+                           if parcial_importancia.exists() else None)
+            return pd.read_parquet(parcial)["probabilidad"], importancia
+        x_ent, y_ent, x_eval = preparar(contexto)
+        probabilidad, importancia = ajustar(x_ent, y_ent, x_eval)
+        probabilidad = pd.Series(probabilidad, index=x_eval.index, name="probabilidad")
         if reanudable:
             ruta_parcial.mkdir(parents=True, exist_ok=True)
+            if importancia is not None:
+                guardar_parquet_atomico(importancia.rename("importancia").to_frame(), parcial_importancia)
             guardar_parquet_atomico(probabilidad.to_frame(), parcial)
-        return probabilidad, modelo
+        return probabilidad, importancia
 
     # 1. OOF en los 5 folds del 80%
     oof = []
@@ -106,7 +141,7 @@ def evaluar_candidato(nombre, matriz, particion, parametros, dinamicas=(), con_t
     metricas_cv = metricas_por_fold(oof["verdad"], oof["probabilidad"], oof["fold"], umbral)
 
     # 3. Holdout con el umbral OOF fijo
-    prob_holdout, modelo_holdout = ajustar_predecir("holdout")
+    prob_holdout, importancia = ajustar_predecir("holdout")
     verdad_holdout = y.loc[prob_holdout.index].astype(int)
     metricas_holdout = calcular_metricas(verdad_holdout, (prob_holdout >= umbral).astype(int))
     registrar_log(nombre, "fin holdout")
@@ -115,10 +150,7 @@ def evaluar_candidato(nombre, matriz, particion, parametros, dinamicas=(), con_t
         "nombre": nombre, "umbral": umbral, **metricas_cv,
         **{f"{k}_holdout": v for k, v in metricas_holdout.items()},
         "oof": oof, "prediccion_holdout": prob_holdout,
-        # Si el holdout salió de la caché parcial no hay modelo para la importancia
-        "importancia": (pd.Series(modelo_holdout.feature_importance("gain"),
-                                  index=modelo_holdout.feature_name())
-                        if modelo_holdout is not None else pd.Series(dtype=float)),
+        "importancia": importancia if importancia is not None else pd.Series(dtype=float),
     }
 
     # 4. Reajuste sobre el 100% y test
@@ -131,6 +163,47 @@ def evaluar_candidato(nombre, matriz, particion, parametros, dinamicas=(), con_t
     if guardar:
         guardar_predicciones(resultado)
     registrar_log(nombre, f"F1 CV {metricas_cv['f1_cv']:.4f} | holdout {metricas_holdout['f1']:.4f}", inicio)
+    return resultado
+
+
+def evaluar_candidato(nombre, matriz, particion, parametros, dinamicas=(), con_test=False,
+                      semillas=(SEMILLA,), guardar=True, reanudable=False):
+    """evaluar_modelo() de un LightGBM con parámetros fijos (y seed bagging).
+
+    Argumentos:
+      nombre, particion, con_test, guardar, reanudable = como en evaluar_modelo()
+      matriz     = predictores fijos en dummies, indexados por id (train + test)
+      parametros = hiperparámetros de LightGBM
+      dinamicas  = variables de auxiliares por contexto (predecir_anidado())
+      semillas   = varias semillas promedian las probabilidades (seed bagging)
+    Devuelve: diccionario con métricas, umbral y predicciones.
+    """
+    return evaluar_modelo(nombre, crear_preparador(matriz, particion, dinamicas),
+                          crear_ajuste_lightgbm(parametros, semillas), particion,
+                          con_test=con_test, guardar=guardar, reanudable=reanudable)
+
+
+def resultado_desde_predicciones(nombre, verdad):
+    """Reconstruye métricas y predicciones de un candidato desde el parquet que
+    escribió guardar_predicciones() (OOF, holdout y, si existe, test).
+
+    Argumentos: nombre = candidato; verdad = pobre por id.
+    Devuelve: diccionario como el de evaluar_modelo() (sin importancia ni tiempo).
+    """
+    predicciones = pd.read_parquet(RUTA_NIVEL7 / f"predicciones_{nombre}.parquet").set_index("id")
+    oof = predicciones[predicciones["tipo"] == "oof"][["probabilidad", "fold"]].copy()
+    oof["fold"] = oof["fold"].astype(int)
+    oof["verdad"] = verdad.loc[oof.index].astype(int)
+    holdout = predicciones[predicciones["tipo"] == "holdout"]["probabilidad"]
+    umbral, _ = buscar_umbral_f1(oof["verdad"], oof["probabilidad"])
+    metricas_cv = metricas_por_fold(oof["verdad"], oof["probabilidad"], oof["fold"], umbral)
+    metricas_holdout = calcular_metricas(verdad.loc[holdout.index].astype(int), (holdout >= umbral).astype(int))
+    resultado = {"nombre": nombre, "umbral": umbral, **metricas_cv,
+                 **{f"{k}_holdout": v for k, v in metricas_holdout.items()},
+                 "oof": oof, "prediccion_holdout": holdout}
+    test = predicciones[predicciones["tipo"] == "test"]["probabilidad"]
+    if len(test):
+        resultado["prediccion_test"] = test
     return resultado
 
 

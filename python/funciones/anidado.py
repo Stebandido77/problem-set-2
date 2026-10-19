@@ -164,6 +164,25 @@ def verificar_sin_fuga(registro, grupos, contextos=None):
     return True
 
 
+def crear_perezoso(crear):
+    """Envuelve la construcción de un auxiliar para que solo ocurra si hace falta.
+
+    Construir un auxiliar puede costar memoria y tiempo (p. ej. la matriz de
+    personas con contexto del hogar); si la caché anidada ya existe,
+    cargar_o_calcular_anidado() nunca llama a ajustar_predecir y no se construye.
+    Argumentos: crear = función sin argumentos que devuelve ajustar_predecir.
+    Devuelve: función(ids_entrenamiento, ids_prediccion) equivalente.
+    """
+    construido = []
+
+    def ajustar_predecir(ids_entrenamiento, ids_prediccion):
+        if not construido:
+            construido.append(crear())
+        return construido[0](ids_entrenamiento, ids_prediccion)
+
+    return ajustar_predecir
+
+
 def cargar_o_calcular_anidado(nombre, ajustar_predecir, grupos):
     """Variables de un auxiliar por contexto, desde caché si ya se calcularon.
 

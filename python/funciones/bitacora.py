@@ -1,6 +1,8 @@
 """Log por etapa del nivel 7 con hora y RAM (stores/logs/nivel7.log)."""
 
 from datetime import datetime
+import os
+import threading
 import time
 
 import psutil
@@ -47,3 +49,40 @@ class Presupuesto:
 
     def agotado(self):
         return self.transcurrido() >= self.minutos
+
+
+# Límites de memoria: por encima (proceso) o por debajo (sistema) se sale limpio
+LIMITE_PROCESO_GB = 6.0
+MINIMO_LIBRE_SISTEMA_GB = 2.0
+CODIGO_SALIDA_MEMORIA = 3
+
+
+def motivo_memoria():
+    """Texto con el motivo si la memoria pasó algún límite; None si todo va bien."""
+    proceso = psutil.Process().memory_info().rss / 1024**3
+    libre = psutil.virtual_memory().available / 1024**3
+    if proceso > LIMITE_PROCESO_GB:
+        return f"el proceso usa {proceso:.2f} GB (límite {LIMITE_PROCESO_GB} GB)"
+    if libre < MINIMO_LIBRE_SISTEMA_GB:
+        return f"el sistema tiene {libre:.2f} GB libres (mínimo {MINIMO_LIBRE_SISTEMA_GB} GB)"
+    return None
+
+
+def iniciar_vigilante_memoria(etapa, intervalo=5):
+    """Hilo que revisa la memoria cada `intervalo` segundos y, si pasa un límite,
+    lo anota en el log y termina el proceso con CODIGO_SALIDA_MEMORIA.
+
+    Salir así es limpio porque todo el avance ya está en disco (cada fold, ajuste
+    auxiliar y evaluación se guarda al terminar, con escritura atómica): lo que
+    se pierde es solo el ajuste en curso, y al relanzar se retoma desde ahí.
+    Argumentos: etapa = nombre para el log; intervalo = segundos entre revisiones.
+    """
+    def vigilar():
+        while True:
+            motivo = motivo_memoria()
+            if motivo:
+                registrar_log(etapa, f"SALIDA POR MEMORIA: {motivo}; se retoma al relanzar")
+                os._exit(CODIGO_SALIDA_MEMORIA)
+            time.sleep(intervalo)
+
+    threading.Thread(target=vigilar, daemon=True, name="vigilante_memoria").start()

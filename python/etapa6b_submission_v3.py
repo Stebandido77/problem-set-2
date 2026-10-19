@@ -21,32 +21,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pandas as pd
 
-from configuracion import RUTA_NIVEL7, RUTA_SUBMISSIONS
+from configuracion import RUTA_SUBMISSIONS
 from funciones.bitacora import registrar_log
 from funciones.datos import cargar_particion
-from funciones.metricas import buscar_umbral_f1, calcular_metricas, metricas_por_fold
+from funciones.modelado import resultado_desde_predicciones
 from funciones.submission import guardar_submission, validar_submission
 
 CANDIDATO = "n7_v3_fuentes_bag5"
 ARCHIVO = "n7_v3_final.csv"
 REFERENCIA = "n7_final.csv"
-
-
-def resultado_desde_predicciones(nombre, verdad):
-    """Arma el diccionario que espera guardar_submission() desde las
-    predicciones guardadas de un candidato (OOF, holdout y test).
-
-    Argumentos: nombre = candidato; verdad = pobre por id.
-    Devuelve: diccionario con nombre, umbral, f1_cv, f1_holdout y prediccion_test.
-    """
-    predicciones = pd.read_parquet(RUTA_NIVEL7 / f"predicciones_{nombre}.parquet").set_index("id")
-    oof = predicciones[predicciones["tipo"] == "oof"]
-    holdout = predicciones[predicciones["tipo"] == "holdout"]["probabilidad"]
-    umbral, _ = buscar_umbral_f1(verdad.loc[oof.index], oof["probabilidad"])
-    cv = metricas_por_fold(verdad.loc[oof.index], oof["probabilidad"], oof["fold"], umbral)
-    metricas_holdout = calcular_metricas(verdad.loc[holdout.index].astype(int), (holdout >= umbral).astype(int))
-    return {"nombre": nombre, "umbral": umbral, "f1_cv": cv["f1_cv"], "f1_holdout": metricas_holdout["f1"],
-            "prediccion_test": predicciones[predicciones["tipo"] == "test"]["probabilidad"]}
 
 
 def main():

@@ -35,7 +35,7 @@ from funciones.variables import construir_grupos
 ETIQUETA_NIVEL = "7. Python: v2 + auxiliares de ingreso"
 UMBRAL_SOBREAJUSTE = 0.02
 F1_KAGGLE = {"nivel7/checkpoint_a4.csv": "0.77"}
-AUXILIARES = {"laboral": 4, "total": 4, "hogar": 1}  # columnas que aporta cada auxiliar
+AUXILIARES = {"laboral": 4, "total": 4, "hogar": 1, "fuentes": 10}  # columnas que aporta cada auxiliar
 
 # candidato: (bloques, auxiliares, parámetros, semillas, archivo de submission)
 CANDIDATOS = {
@@ -53,13 +53,23 @@ CANDIDATOS = {
     "n7_optuna_a4_total": (["nivel_3", "laborales", "perceptor", "pequenos"], ["laboral", "total"], "optuna", 1, None),
     "n7_optuna_a4_total_bag5": (["nivel_3", "laborales", "perceptor", "pequenos"], ["laboral", "total"], "optuna", 5, None),
     "n7_n6param_a4_total_bag5": (["nivel_3", "laborales", "perceptor", "pequenos"], ["laboral", "total"], "n6", 5, "nivel7/n7_final.csv"),
+    "n7_v3_solo_fuentes_bag5": (["nivel_3", "laborales", "perceptor", "pequenos"], ["fuentes"], "n6", 5, None),
+    "n7_v3_fuentes_bag5": (["nivel_3", "laborales", "perceptor", "pequenos"], ["laboral", "total", "fuentes"], "n6", 5, "nivel7/n7_v3_final.csv"),
 }
+
+# Mejor n7 que exporta exportar_mejor_n7() para 10_mejor_modelo.R, elegido a mano.
+# n7_v3_fuentes_bag5 tiene más F1 en holdout, pero su auxiliar de fuentes no se
+# carga en cargar_insumos() y el deep dive sigue describiendo n7_final hasta que
+# el equipo decida el cambio. Con None se aplica la regla automática (mayor F1
+# en holdout entre los que tienen submission).
+MEJOR_N7_MANUAL = "n7_n6param_a4_total_bag5"
 
 
 def tiempos_registrados():
     """Minutos por candidato desde las tablas de cada etapa (si existen)."""
     tiempos = {}
-    for archivo in ("ablacion_etapa1.csv", "optuna_bagging_a4_total.csv", "bagging_n6param_a4_total.csv"):
+    for archivo in ("ablacion_etapa1.csv", "optuna_bagging_a4_total.csv", "bagging_n6param_a4_total.csv",
+                    "etapa6_ablacion.csv"):
         ruta = RUTA_TABLAS / archivo
         if ruta.exists():
             tabla = pd.read_csv(ruta)
@@ -123,13 +133,14 @@ def leer_parametros(tipo_parametros):
 
 def exportar_mejor_n7(nivel7, verdad):
     """Importancia (gain promedio de las semillas, ajuste sobre el 80%) y curva de
-    umbral OOF del mejor n7 con submission, para 10_mejor_modelo.R.
+    umbral OOF del mejor n7 con submission (MEJOR_N7_MANUAL si no es None), para
+    10_mejor_modelo.R.
 
     Argumentos: nivel7 = filas del leaderboard del nivel 7; verdad = pobre por id.
     Devuelve: nombre del candidato exportado.
     """
     con_submission = nivel7[nivel7["archivo_submission"].notna()]
-    nombre = con_submission.sort_values("f1_holdout", ascending=False)["candidato"].iloc[0]
+    nombre = MEJOR_N7_MANUAL or con_submission.sort_values("f1_holdout", ascending=False)["candidato"].iloc[0]
     nombres_bloques, auxiliares, tipo_parametros, semillas, _ = CANDIDATOS[nombre]
 
     predicciones = pd.read_parquet(RUTA_NIVEL7 / f"predicciones_{nombre}.parquet").set_index("id")

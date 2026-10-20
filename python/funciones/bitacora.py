@@ -37,12 +37,23 @@ def registrar_log(etapa, evento, inicio=None):
 class Presupuesto:
     """Reloj de una etapa: avisa cuándo se pasó del tiempo máximo.
 
-    Argumentos: minutos = tiempo máximo de la etapa.
+    Argumentos: minutos = tiempo máximo de la etapa; ruta_inicio = archivo
+        opcional donde se guarda la hora de arranque, para que un relanzamiento
+        (por memoria o por error) siga contando desde el primer arranque.
     """
 
-    def __init__(self, minutos):
-        self.inicio = time.time()
+    def __init__(self, minutos, ruta_inicio=None):
         self.minutos = minutos
+        self.inicio = time.time()
+        if ruta_inicio is not None:
+            if ruta_inicio.exists():
+                self.inicio = float(ruta_inicio.read_text(encoding="utf-8"))
+            else:
+                ruta_inicio.parent.mkdir(parents=True, exist_ok=True)
+                ruta_inicio.write_text(repr(self.inicio), encoding="utf-8")
+
+    def restante(self):
+        return self.minutos - self.transcurrido()
 
     def transcurrido(self):
         return (time.time() - self.inicio) / 60
@@ -55,6 +66,7 @@ class Presupuesto:
 LIMITE_PROCESO_GB = 6.0
 MINIMO_LIBRE_SISTEMA_GB = 2.0
 CODIGO_SALIDA_MEMORIA = 3
+CODIGO_SALIDA_TIEMPO = 4
 
 
 def motivo_memoria():
@@ -86,3 +98,22 @@ def iniciar_vigilante_memoria(etapa, intervalo=5):
             time.sleep(intervalo)
 
     threading.Thread(target=vigilar, daemon=True, name="vigilante_memoria").start()
+
+
+def iniciar_corte_duro(etapa, reloj, desactivar, intervalo=10):
+    """Hilo que termina el proceso (CODIGO_SALIDA_TIEMPO) cuando el reloj se agota.
+
+    Es la red de seguridad del tope de tiempo: el plan de la etapa ya deja
+    reserva para el cierre, y todo lo terminado está en disco. Al empezar el
+    cierre (que no entrena nada) quien llama hace desactivar.set().
+    Argumentos: etapa = nombre para el log; reloj = Presupuesto;
+        desactivar = threading.Event; intervalo = segundos entre revisiones.
+    """
+    def vigilar():
+        while not desactivar.is_set():
+            if reloj.agotado():
+                registrar_log(etapa, f"CORTE DURO: {reloj.minutos} min agotados")
+                os._exit(CODIGO_SALIDA_TIEMPO)
+            time.sleep(intervalo)
+
+    threading.Thread(target=vigilar, daemon=True, name="corte_duro").start()

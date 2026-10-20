@@ -73,13 +73,16 @@ def agregar_ingreso_hogar(ids, ingreso, en_unidad_gasto, hogar, sufijo=""):
     return por_hogar.drop(columns="ingreso_pred_max").add_suffix(sufijo)
 
 
-def crear_auxiliar_personas(personas, ingreso, hogar, columna="ingreso_laboral", sufijo=""):
+def crear_auxiliar_personas(personas, ingreso, hogar, columna="ingreso_laboral", sufijo="",
+                            parametros=PARAMETROS_AUXILIAR):
     """Función ajustar_predecir() del auxiliar de personas para predecir_anidado().
 
     Argumentos: personas = cargar_personas(); ingreso = cargar_ingreso_personas();
         hogar = cargar_hogares() (Npersug y línea de pobreza para agregar);
         columna = ingreso objetivo ("ingreso_laboral" o "ingreso_total");
-        sufijo = se agrega al nombre de las variables (para usar dos auxiliares).
+        sufijo = se agrega al nombre de las variables (para usar dos auxiliares);
+        parametros = hiperparámetros de LightGBM (los tuneados de la etapa 8 o
+        PARAMETROS_AUXILIAR por defecto).
     Devuelve: función(ids_entrenamiento, ids_prediccion) -> DataFrame por hogar.
     """
     x = preparar_personas_auxiliar(personas)
@@ -95,7 +98,7 @@ def crear_auxiliar_personas(personas, ingreso, hogar, columna="ingreso_laboral",
         filas_pred = id_persona.isin(ids_prediccion).to_numpy()
         assert not np.isnan(y[filas_ent]).any(), "personas de entrenamiento sin ingreso"
         datos = lgb.Dataset(x[filas_ent], label=y[filas_ent], free_raw_data=True)
-        modelo = lgb.train({**PARAMETROS_AUXILIAR, "num_threads": N_HILOS, "seed": SEMILLA}, datos)
+        modelo = lgb.train({**parametros, "num_threads": N_HILOS, "seed": SEMILLA}, datos)
         ingreso_predicho = np.expm1(modelo.predict(x[filas_pred]))
         return agregar_ingreso_hogar(id_persona.to_numpy()[filas_pred], ingreso_predicho,
                                      en_unidad_gasto[filas_pred], hogar, sufijo)

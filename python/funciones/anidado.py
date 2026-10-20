@@ -206,3 +206,37 @@ def cargar_o_calcular_anidado(nombre, ajustar_predecir, grupos):
         shutil.rmtree(ruta_parcial, ignore_errors=True)
     verificar_sin_fuga(registro, grupos)
     return {c: g.drop(columns="contexto").set_index("id") for c, g in tabla.groupby("contexto")}
+
+
+def cargar_o_calcular_anidado_por_grupo(nombre, crear_ajuste, grupos, grupo_de_contexto):
+    """Como cargar_o_calcular_anidado(), pero cada grupo de contextos usa su propio
+    auxiliar (p. ej. hiperparámetros tuneados sin ver la evaluación del contexto).
+
+    Los ajustes no se comparten entre grupos: cada grupo corre predecir_anidado()
+    solo con sus contextos y guarda sus parciales en parciales/<nombre>/<grupo>/.
+    Argumentos: nombre = etiqueta del auxiliar; crear_ajuste = función(grupo) ->
+        ajustar_predecir; grupos = asignar_grupos(); grupo_de_contexto =
+        función(contexto) -> grupo.
+    Devuelve: diccionario {contexto: DataFrame}. Verifica que no haya fuga.
+    """
+    ruta = RUTA_NIVEL7 / f"anidado_{nombre}.parquet"
+    ruta_registro = RUTA_NIVEL7 / f"registro_{nombre}.parquet"
+    if ruta.exists() and ruta_registro.exists():
+        tabla = pd.read_parquet(ruta)
+        registro = pd.read_parquet(ruta_registro)
+    else:
+        contextos = definir_contextos()
+        tablas, registros = [], []
+        for grupo in sorted({grupo_de_contexto(c) for c in contextos}):
+            propios = {c: v for c, v in contextos.items() if grupo_de_contexto(c) == grupo}
+            variables, registro = predecir_anidado(crear_ajuste(grupo), grupos, f"{nombre} {grupo}", propios,
+                                                   ruta_parcial=RUTA_NIVEL7 / "parciales" / nombre / grupo)
+            tablas += [v.assign(contexto=c) for c, v in variables.items()]
+            registros.append(registro.assign(grupo_parametros=grupo))
+        tabla = pd.concat(tablas).rename_axis("id").reset_index()
+        registro = pd.concat(registros, ignore_index=True)
+        guardar_parquet_atomico(registro, ruta_registro)
+        guardar_parquet_atomico(tabla, ruta)
+        shutil.rmtree(RUTA_NIVEL7 / "parciales" / nombre, ignore_errors=True)
+    verificar_sin_fuga(registro, grupos)
+    return {c: g.drop(columns="contexto").set_index("id") for c, g in tabla.groupby("contexto")}

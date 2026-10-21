@@ -46,7 +46,8 @@ uno que prediga bien **y** que se pueda aplicar con una encuesta corta y barata.
 ├── python/                           # Nivel 7 (Python 3.12, ver sección propia)
 │   ├── requirements.txt              # Versiones exactas del entorno
 │   ├── configuracion.py              # Semilla, rutas, parámetros de n6_lightgbm
-│   ├── etapa1_ablacion.py ... etapa4_leaderboard.py
+│   ├── etapa1_ablacion.py ... etapa10b_submissions.py
+│   ├── etapa11_estrato.py            # Estrato como auxiliar y reconciliación del arriendo
 │   ├── funciones/                    # Variables v2, OOF anidada, auxiliares, métricas
 │   └── tests/                        # Partición igual a R y auxiliares sin fuga
 ├── stores/
@@ -167,12 +168,39 @@ python/.venv/Scripts/python.exe python/etapa2_bagging_n6.py
 python/.venv/Scripts/python.exe python/umbral_sin_bogota.py
 python/.venv/Scripts/python.exe python/etapa3_encuesta_corta.py 27
 python/.venv/Scripts/python.exe python/etapa4_leaderboard.py
+python/.venv/Scripts/python.exe python/etapa11_estrato.py
 Rscript scripts/08_leaderboard.R && Rscript scripts/10_mejor_modelo.R
 ```
 
 Un solo proceso pesado a la vez; LightGBM paraleliza con hilos (`PS2_NUCLEOS`). Los
 auxiliares y las predicciones quedan en caché en `stores/procesados/nivel7/`, y cada etapa
 escribe hora y RAM en `stores/logs/nivel7.log`.
+
+### Etapa 11: el estrato como objetivo auxiliar y el arriendo imputado
+
+`Estrato1` solo existe en train y es una característica del hogar (constante entre sus
+personas; `11_exportar_python.R` lo comprueba y lo exporta por hogar). `etapa11_estrato.py`
+lo usa como **objetivo auxiliar**, nunca como predictor: un LightGBM multiclase sobre los
+280 predictores de hogar de a4 (presentes en test) lo predice con la misma OOF anidada de
+los auxiliares de ingreso, y al clasificador entran el estrato esperado y P(estrato <= 2).
+La comparación es de 1 semilla, con los parámetros de n6, contra `n7_v2_total_suma`
+(a4 + auxiliares de ingreso laboral y total):
+
+| Candidato (1 semilla) | F1 CV | F1 holdout | Δ CV | Δ holdout |
+|---|---|---|---|---|
+| base: `n7_v2_total_suma` | 0,7693 | 0,7776 | | |
+| + estrato esperado y P(estrato <= 2) | 0,7686 | 0,7766 | −0,0007 | −0,0010 |
+| per cápita de los auxiliares con arriendo imputado | 0,7694 | 0,7760 | +0,0000 | −0,0016 |
+
+El auxiliar predice bien el estrato fuera de muestra (Spearman 0,89 con el observado,
+AUC 0,94 para estrato <= 2), pero no agrega F1: la regla de la etapa (subir más de 0,003
+en CV y en holdout) no se cumple, así que no se corre el bagging sobre la base de A ni se
+genera CSV. La reconciliación del arriendo imputado (`arriendo_imputado_hogar()`: P5130 en
+vivienda propia pagada y en usufructo, P5130 − P5100 en propia pagando; reproduce
+`Ingtotugarr − Ingtotug` en el 98,4 % de los hogares de train) tampoco mejora, de modo que
+`agregar_ingreso_hogar()` la conserva como opción (`arriendo_imputado=False` por defecto) y
+`cargar_insumos()` puede aplicarla sobre las cachés existentes. Tablas en
+`views/tablas/nivel7/etapa11_*.csv`.
 
 ## Decisiones de diseño
 

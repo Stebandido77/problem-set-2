@@ -12,7 +12,11 @@
 #                               en ambos + las variables de limpiar_personas()
 #   ingreso_personas_train.parquet  ingresos individuales (solo train; objetivo
 #                               del modelo auxiliar, nunca predictores)
-#   ingreso_hogar_train.parquet ingreso per cápita del hogar (solo train)
+#   ingreso_hogar_train.parquet ingreso de la unidad de gasto con y sin arriendo
+#                               imputado, per cápita, línea, Pobre e Indigente
+#                               (solo train; objetivos y auditoría, nunca predictores)
+#   estrato_hogar_train.parquet estrato socioeconómico del hogar (Estrato1, solo
+#                               train; objetivo auxiliar de la etapa 11)
 #   particion_nivel7.parquet    id, pobre, fold_id (1-5; NA en holdout y test),
 #                               holdout (TRUE/FALSE) y base (train/test)
 #   n6_lightgbm_predicciones.parquet  OOF y holdout de n6_lightgbm (referencia)
@@ -86,7 +90,27 @@ columnas_ingreso <- c("Impa", "Isa", "Ie", "Imdi", "Impaes", "Isaes", "Iees", "I
                       "Iof1", "Iof2", "Iof3h", "Iof3i", "Iof6", "Ingtotob", "Ingtotes",
                       "Ingtot", "P6500", "P7070")
 ingreso_personas <- datos$train_personas |> select(id, Orden, any_of(columnas_ingreso))
-ingreso_hogar <- datos$train_hogares |> select(id, Ingtotug, Ingpcug, Lp, Pobre)
+# Ingtotugarr = Ingtotug + arriendo imputado a los propietarios; es el numerador de
+# Ingpcug y por tanto de la etiqueta. Se exporta para reconciliar la construcción
+# del ingreso en los auxiliares (diagnóstico forense y etapa 11).
+ingreso_hogar <- datos$train_hogares |>
+  select(id, Ingtotug, Ingtotugarr, Ingpcug, Lp, Pobre, Indigente, Npobres, Nindigentes)
+
+# ---- Estrato del hogar (solo train) --------------------------------------------
+# Estrato1 viene en la base de personas, pero es una característica de la vivienda:
+# se comprueba que no cambie dentro del hogar y se exporta una fila por hogar
+estrato_hogar <- datos$train_personas |>
+  group_by(id) |>
+  summarise(
+    estrato = first(Estrato1[!is.na(Estrato1)], default = NA_real_),
+    n_estratos = n_distinct(Estrato1, na.rm = TRUE),
+    .groups = "drop"
+  )
+stopifnot(
+  all(estrato_hogar$n_estratos <= 1),
+  nrow(estrato_hogar) == nrow(datos$train_hogares)
+)
+estrato_hogar <- estrato_hogar |> select(id, estrato)
 
 # ---- Predicciones de referencia de n6_lightgbm ---------------------------------
 n6 <- readRDS(file.path(RUTA_MODELOS, "n6_lightgbm.rds"))
@@ -102,6 +126,7 @@ write_parquet(hogar, file.path(RUTA_PROCESADOS, "hogar_nivel7.parquet"))
 write_parquet(personas, file.path(RUTA_PROCESADOS, "personas_nivel7.parquet"))
 write_parquet(ingreso_personas, file.path(RUTA_PROCESADOS, "ingreso_personas_train.parquet"))
 write_parquet(ingreso_hogar, file.path(RUTA_PROCESADOS, "ingreso_hogar_train.parquet"))
+write_parquet(estrato_hogar, file.path(RUTA_PROCESADOS, "estrato_hogar_train.parquet"))
 write_parquet(tabla_particion, file.path(RUTA_PROCESADOS, "particion_nivel7.parquet"))
 write_parquet(n6_predicciones, file.path(RUTA_PROCESADOS, "n6_lightgbm_predicciones.parquet"))
 write_csv(resumen_particion_r, file.path(RUTA_PROCESADOS, "resumen_particion_r.csv"))

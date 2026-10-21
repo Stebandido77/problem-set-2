@@ -99,7 +99,7 @@ def test_contexto_de_hogar_del_auxiliar_v3_no_trae_ingresos():
     assert not [c for c in columnas if c.lower().startswith(("ing", "log_ingreso"))]
 
 
-@pytest.mark.parametrize("nombre", ["ingreso_personas", "ingreso_hogar", "ingreso_total_personas",
+@pytest.mark.parametrize("nombre", ["ingreso_personas", "ingreso_hogar", "ingreso_total_personas", "estrato_hogar",
                                     "ingreso_fuentes_v3", "ingreso_cuantiles_v3"])
 def test_registro_real_sin_fuga(nombre):
     ruta = RUTA_NIVEL7 / f"registro_{nombre}.parquet"

@@ -122,3 +122,13 @@ def imputar_mediana(entrenamiento, *otras):
     """
     medianas = entrenamiento.median(skipna=True, numeric_only=True).fillna(0)
     return [m.fillna(medianas) for m in (entrenamiento, *otras)]
+
+
+def cargar_estrato_hogar():
+    """Estrato del hogar (Estrato1 del DANE, 1 a 6; solo train; objetivo del
+    auxiliar de la etapa 11, nunca predictor).
+
+    Devuelve: Serie de enteros indexada por id.
+    """
+    estrato = pd.read_parquet(RUTA_PROCESADOS / "estrato_hogar_train.parquet").set_index("id")["estrato"]
+    return estrato.astype(int).rename("estrato")

@@ -5,8 +5,10 @@ del modelo principal a través de predecir_anidado().
     presentes en test; se agrega al hogar (total, per cápita sobre Npersug y
     per cápita / Lp).
   - Hogar (directo): log(Ingpcug / Lp) con las variables de hogar del nivel 3 + v2.
-Los ingresos solo existen en train y solo se usan como objetivo, nunca como
-predictores.
+  - Estrato (etapa 11): el estrato del hogar (Estrato1, 1 a 6) como objetivo
+    multiclase; al modelo principal entran el estrato esperado y P(estrato <= 2).
+Los ingresos y el estrato solo existen en train y solo se usan como objetivo,
+nunca como predictores.
 """
 
 import lightgbm as lgb
@@ -48,27 +50,82 @@ def preparar_personas_auxiliar(personas):
     return x
 
 
-def agregar_ingreso_hogar(ids, ingreso, en_unidad_gasto, hogar, sufijo=""):
+# Arriendo imputado del DANE (Ingtotugarr - Ingtotug), verificado contra train en el
+# diagnóstico forense: el arriendo estimado (P5130) de las viviendas propias pagadas
+# y en usufructo, y en las propias que se están pagando el estimado menos la cuota
+# de amortización (P5100) cuando queda positivo. Arrendatarios, posesión sin título
+# y otras tenencias no reciben imputación. La regla reproduce la diferencia exacta en
+# el 98,4% de los hogares de train (2.694 discrepancias de 164.960).
+TENENCIAS_ARRIENDO_COMPLETO = ("propia_pagada", "usufructo")
+TENENCIA_PAGANDO = "propia_pagando"
+# Si True, agregar_ingreso_hogar() suma el arriendo imputado al ingreso de la unidad
+# de gasto antes de dividir, como hace Ingpcug. Queda en False porque en la etapa 11
+# la reconciliación no mejoró el clasificador (F1 CV +0,0000, holdout -0,0016 frente
+# a la base de 1 semilla); se conserva como opción documentada y comprobada.
+ARRIENDO_IMPUTADO_POR_DEFECTO = False
+
+
+def arriendo_imputado_hogar(hogar):
+    """Arriendo imputado que el DANE suma al ingreso de la unidad de gasto.
+
+    Ingpcug, y con él la etiqueta, se calcula con Ingtotugarr = Ingtotug +
+    arriendo imputado; los auxiliares suman ingresos personales, así que sin este
+    término su per cápita no es comparable con la línea para los propietarios.
+    Argumentos: hogar = cargar_hogares() (tenencia, arriendo y P5100).
+    Devuelve: Serie por id en pesos por mes (0 donde no aplica).
+    """
+    tenencia = hogar["tenencia"].astype("string")
+    arriendo = hogar["arriendo"].fillna(0)
+    cuota = hogar["P5100"].fillna(0)
+    imputado = pd.Series(0.0, index=hogar.index)
+    imputado[tenencia.isin(TENENCIAS_ARRIENDO_COMPLETO).to_numpy()] = arriendo
+    pagando = (tenencia == TENENCIA_PAGANDO).to_numpy()
+    imputado[pagando] = (arriendo - cuota).clip(lower=0)
+    return imputado.rename("arriendo_imputado")
+
+
+def derivar_per_capita(por_hogar, hogar, sufijo="", arriendo_imputado=ARRIENDO_IMPUTADO_POR_DEFECTO):
+    """Variables per cápita del ingreso agregado del hogar, a partir del total.
+
+    Argumentos: por_hogar = DataFrame indexado por id con ingreso_pred_total<sufijo>;
+        hogar = cargar_hogares(); sufijo = el de las variables; arriendo_imputado =
+        si True suma al total el arriendo imputado del hogar antes de dividir
+        (misma construcción que Ingpcug); si False, solo los ingresos personales.
+    Devuelve: copia de por_hogar con log_ingreso_pred_pc<sufijo> (log(1 + per
+        cápita)) y log_ingreso_pred_pc_lp<sufijo> (log frente a la línea) recalculadas.
+    """
+    total = por_hogar[f"ingreso_pred_total{sufijo}"]
+    if arriendo_imputado:
+        total = total + arriendo_imputado_hogar(hogar).reindex(por_hogar.index).fillna(0)
+    n_ug = hogar.loc[por_hogar.index, "personas_ug"].clip(lower=1)
+    lp = hogar.loc[por_hogar.index, "linea_pobreza"]
+    per_capita = total / n_ug
+    salida = por_hogar.copy()
+    salida[f"log_ingreso_pred_pc{sufijo}"] = np.log1p(per_capita)
+    salida[f"log_ingreso_pred_pc_lp{sufijo}"] = np.log((per_capita + 1) / lp)
+    return salida
+
+
+def agregar_ingreso_hogar(ids, ingreso, en_unidad_gasto, hogar, sufijo="",
+                          arriendo_imputado=ARRIENDO_IMPUTADO_POR_DEFECTO):
     """Agrega ingresos individuales al hogar, sobre la unidad de gasto.
 
     La usan el auxiliar (con ingresos predichos) y el oráculo de la etapa 5 (con
     ingresos observados), para que ambos se agreguen exactamente igual.
     Argumentos: ids = id de hogar de cada persona; ingreso = pesos por mes;
         en_unidad_gasto = booleano por persona; hogar = cargar_hogares();
-        sufijo = se agrega al nombre de las variables.
-    Devuelve: DataFrame por hogar con ingreso_pred_total, log_ingreso_pred_pc,
-        log_ingreso_pred_pc_lp e ingreso_pred_max_lp.
+        sufijo = se agrega al nombre de las variables; arriendo_imputado = si
+        True, el per cápita incluye el arriendo imputado del hogar (como Ingpcug).
+    Devuelve: DataFrame por hogar con ingreso_pred_total (solo ingresos
+        personales), log_ingreso_pred_pc, log_ingreso_pred_pc_lp e ingreso_pred_max_lp.
     """
     personas = pd.DataFrame({"id": ids, "ingreso_ug": np.asarray(ingreso) * np.asarray(en_unidad_gasto)})
     por_hogar = personas.groupby("id").agg(
         ingreso_pred_total=("ingreso_ug", "sum"),
         ingreso_pred_max=("ingreso_ug", "max"),
     )
-    n_ug = hogar.loc[por_hogar.index, "personas_ug"].clip(lower=1)
+    por_hogar = derivar_per_capita(por_hogar, hogar, "", arriendo_imputado)
     lp = hogar.loc[por_hogar.index, "linea_pobreza"]
-    per_capita = por_hogar["ingreso_pred_total"] / n_ug
-    por_hogar["log_ingreso_pred_pc"] = np.log1p(per_capita)
-    por_hogar["log_ingreso_pred_pc_lp"] = np.log((per_capita + 1) / lp)
     por_hogar["ingreso_pred_max_lp"] = por_hogar["ingreso_pred_max"] / lp
     return por_hogar.drop(columns="ingreso_pred_max").add_suffix(sufijo)
 
@@ -219,5 +276,63 @@ def crear_auxiliar_cuantiles(matriz, objetivo):
         salida["ancho_intercuartil_v3"] = salida["cuantil_75_v3"] - salida["cuantil_25_v3"]
         salida["cuantiles_bajo_linea_v3"] = (salida.filter(like="cuantil_") < 0).sum(axis=1)
         return salida
+
+    return ajustar_predecir
+
+
+# ---- Auxiliar de estrato (etapa 11) ---------------------------------------------
+ESTRATOS = (1, 2, 3, 4, 5, 6)
+# P(estrato <= 2): los dos estratos con más pobreza en train (41% y 22%)
+ESTRATO_BAJO_MAXIMO = 2
+PARAMETROS_ESTRATO = {
+    "objective": "multiclass",
+    "num_class": len(ESTRATOS),
+    "learning_rate": 0.08,
+    "num_iterations": 200,
+    "num_leaves": 31,
+    "min_data_in_leaf": 200,
+    "feature_fraction": 0.8,
+    "bagging_fraction": 0.8,
+    "bagging_freq": 1,
+    "verbose": -1,
+}
+
+
+def resumir_probabilidades_estrato(probabilidades, ids):
+    """Estrato esperado y P(estrato <= ESTRATO_BAJO_MAXIMO) desde las probabilidades
+    por clase.
+
+    Argumentos: probabilidades = matriz (hogares x estratos, en el orden de
+        ESTRATOS); ids = id de cada fila.
+    Devuelve: DataFrame por hogar con estrato_esperado y p_estrato_bajo.
+    """
+    valores = np.array(ESTRATOS, dtype=float)
+    probabilidades = np.asarray(probabilidades)
+    return pd.DataFrame({
+        "estrato_esperado": probabilidades @ valores,
+        "p_estrato_bajo": probabilidades[:, valores <= ESTRATO_BAJO_MAXIMO].sum(axis=1),
+    }, index=pd.Index(ids, name="id"))
+
+
+def crear_auxiliar_estrato(matriz, estrato, parametros=PARAMETROS_ESTRATO):
+    """Función ajustar_predecir() del auxiliar de estrato para predecir_anidado().
+
+    Un LightGBM multiclase predice el estrato del hogar (1 a 6, solo train) con
+    los predictores de hogar presentes en test; del vector de probabilidades
+    salen el estrato esperado y P(estrato <= 2). El estrato nunca entra como
+    predictor y los hogares a predecir nunca están en el entrenamiento.
+    Argumentos: matriz = predictores de hogar en dummies (armar_matriz());
+        estrato = cargar_estrato_hogar(); parametros = hiperparámetros de LightGBM.
+    Devuelve: función(ids_entrenamiento, ids_prediccion) -> DataFrame por hogar.
+    """
+    clase = estrato.map({e: i for i, e in enumerate(ESTRATOS)})
+
+    def ajustar_predecir(ids_entrenamiento, ids_prediccion):
+        x_ent, x_pred = imputar_mediana(matriz.loc[ids_entrenamiento], matriz.loc[ids_prediccion])
+        y = clase.reindex(ids_entrenamiento)
+        assert y.notna().all(), "hogares de entrenamiento sin estrato"
+        datos = lgb.Dataset(x_ent, label=y.astype(int).to_numpy())
+        modelo = lgb.train({**parametros, "num_threads": N_HILOS, "seed": SEMILLA}, datos)
+        return resumir_probabilidades_estrato(modelo.predict(x_pred), ids_prediccion)
 
     return ajustar_predecir

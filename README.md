@@ -48,6 +48,7 @@ uno que prediga bien **y** que se pueda aplicar con una encuesta corta y barata.
 │   ├── configuracion.py              # Semilla, rutas, parámetros de n6_lightgbm
 │   ├── etapa1_ablacion.py ... etapa10b_submissions.py
 │   ├── etapa11_estrato.py            # Estrato como auxiliar y reconciliación del arriendo
+│   ├── diagnostico_forense.py        # Auditoría de datos, fugas, submissions y shift
 │   ├── funciones/                    # Variables v2, OOF anidada, auxiliares, métricas
 │   └── tests/                        # Partición igual a R y auxiliares sin fuga
 ├── stores/
@@ -169,6 +170,7 @@ python/.venv/Scripts/python.exe python/umbral_sin_bogota.py
 python/.venv/Scripts/python.exe python/etapa3_encuesta_corta.py 27
 python/.venv/Scripts/python.exe python/etapa4_leaderboard.py
 python/.venv/Scripts/python.exe python/etapa11_estrato.py
+python/.venv/Scripts/python.exe python/diagnostico_forense.py
 Rscript scripts/08_leaderboard.R && Rscript scripts/10_mejor_modelo.R
 ```
 
@@ -201,6 +203,41 @@ vivienda propia pagada y en usufructo, P5130 − P5100 en propia pagando; reprod
 `agregar_ingreso_hogar()` la conserva como opción (`arriendo_imputado=False` por defecto) y
 `cargar_insumos()` puede aplicarla sobre las cachés existentes. Tablas en
 `views/tablas/nivel7/etapa11_*.csv`.
+
+### Diagnóstico forense
+
+`diagnostico_forense.py` audita los datos crudos, las cachés y las entregas sin modificar
+nada (tablas `views/tablas/nivel7/forense_*.csv`; `--solo seccion,...` corre una parte).
+Lo que se comprobó:
+
+- **Construcción**: cero personas sin hogar, cero hogares sin personas, `Nper` y `Npersug`
+  coinciden con los conteos, un jefe por hogar, y la suma de `Ingtot` de la unidad de gasto
+  reproduce `Ingtotug` en todos los hogares. `Pobre == (Ingpcug < Lp)` sin excepciones;
+  `Ingpcug = Ingtotugarr / Npersug`, donde `Ingtotugarr` suma el arriendo imputado a
+  propietarios (78.295 hogares; sin él cambiaría la clase de 8.994). Los auxiliares de
+  ingreso no incluyen ese componente: la reconciliación se probó en la etapa 11.
+- **Poda de agregados**: `podar_columnas()` compara sumas de hashes sin orden y descartó
+  como duplicadas dos columnas que no lo eran (`ag_conyuge_P6870_5` y
+  `ag_conyuge_P7150_2`); el efecto predictivo no está medido.
+- **Submissions**: los 30 CSV tienen los 66.168 ids del test en el mismo orden, y en los
+  cinco candidatos con predicciones guardadas la clase coincide con probabilidad y umbral OOF.
+- **Ids y orden**: ids hexadecimales de 24 caracteres sin intersección train-test; ni los
+  prefijos ni los fragmentos numéricos se asocian con la pobreza. El orden de las filas del
+  CSV sí tiene estructura (pobreza por deciles entre 19,3 % y 21,5 %, chi cuadrado
+  p = 0,00002) que reproduce la composición geográfica. Ni ids ni orden se usan como
+  predictores.
+- **Superposición**: 21 hogares de test tienen un perfil exacto en train y 438 uno casi
+  exacto (casi todos unipersonales); solo un par coincide en todos los predictores. No se
+  usan para predecir.
+- **Validación adversarial** (train sin Bogotá vs test, LightGBM de 5 folds): AUC 0,713
+  con las 1.324 columnas de A y **0,501** con las 1.306 observadas, sin los 18 auxiliares.
+  La separación viene de las representaciones auxiliares (ajuste completo frente a OOF), no
+  de un cambio detectable en los predictores originales.
+- **Experimentos** (clasificador n6 de 1 semilla sobre la base de A): añadir auxiliares de
+  indigencia y log(Ingpcug/Lp) da F1 holdout 0,7785 frente a 0,7798 de la base (IC 95 %
+  pareado de −0,004 a +0,002); reponderar por los pesos adversariales sin Bogotá da 0,7808
+  frente a 0,7802 (IC de −0,002 a +0,003) y con los pesos estáticos 0,7803. Ninguna
+  diferencia es distinguible de cero.
 
 ## Decisiones de diseño
 

@@ -48,6 +48,8 @@ uno que prediga bien **y** que se pueda aplicar con una encuesta corta y barata.
 │   ├── configuracion.py              # Semilla, rutas, parámetros de n6_lightgbm
 │   ├── etapa1_ablacion.py ... etapa10b_submissions.py
 │   ├── etapa11_estrato.py            # Estrato como auxiliar y reconciliación del arriendo
+│   ├── etapa12_enfoques.py           # Cuantiles, DeepSets, GPBoost, KNN fuera de fold
+│   ├── etapa12_autogluon.py          # AutoGluon (entorno aparte: requirements_autogluon.txt)
 │   ├── diagnostico_forense.py        # Auditoría de datos, fugas, submissions y shift
 │   ├── funciones/                    # Variables v2, OOF anidada, auxiliares, métricas
 │   └── tests/                        # Partición igual a R y auxiliares sin fuga
@@ -171,8 +173,15 @@ python/.venv/Scripts/python.exe python/etapa3_encuesta_corta.py 27
 python/.venv/Scripts/python.exe python/etapa4_leaderboard.py
 python/.venv/Scripts/python.exe python/etapa11_estrato.py
 python/.venv/Scripts/python.exe python/diagnostico_forense.py
+python/.venv/Scripts/python.exe python/etapa12_enfoques.py preparar
+python/.venv_autogluon/Scripts/python.exe python/etapa12_autogluon.py --corrida A --minutos 40
+python/.venv_autogluon/Scripts/python.exe python/etapa12_autogluon.py --corrida B --minutos 55
+for e in distribucional deepsets gpboost knn cierre; do python/.venv/Scripts/python.exe python/etapa12_enfoques.py $e; done
 Rscript scripts/08_leaderboard.R && Rscript scripts/10_mejor_modelo.R
 ```
+
+AutoGluon vive en un entorno aparte (`py -3.12 -m venv python/.venv_autogluon` e instalar
+`python/requirements_autogluon.txt`) porque fija versiones distintas de numpy y pandas.
 
 Un solo proceso pesado a la vez; LightGBM paraleliza con hilos (`PS2_NUCLEOS`). Los
 auxiliares y las predicciones quedan en caché en `stores/procesados/nivel7/`, y cada etapa
@@ -238,6 +247,78 @@ Lo que se comprobó:
   pareado de −0,004 a +0,002); reponderar por los pesos adversariales sin Bogotá da 0,7808
   frente a 0,7802 (IC de −0,002 a +0,003) y con los pesos estáticos 0,7803. Ninguna
   diferencia es distinguible de cero.
+
+### Etapa 12: enfoques no probados (AutoML, distribucional, conjuntos, efectos aleatorios, vecinos)
+
+`etapa12_enfoques.py` y `etapa12_autogluon.py` prueban cinco familias que no habían
+entrado en la escalera, todas con los mismos folds, el mismo holdout, el umbral elegido en
+OOF con `buscar_umbral_f1()`, OOF anidada para cualquier variable construida con la etiqueta
+y los tests de fuga del pipeline. La base es `n7_a_agregados_bag5` (LightGBM n6 sobre la
+base de A, bagging de 5 semillas); los candidatos de 1 semilla se comparan primero con
+`n12_a_1s` (la misma receta con 1 semilla) y solo pasan a bagging si suben +0,002 en CV y
+en holdout.
+
+- **AutoGluon** (`best_quality`, métrica F1, bagging por nuestros 5 folds vía `groups`,
+  sin calibración de umbral propia). Corrida A: base casi cruda de 353 columnas (variables
+  de hogar tal cual, incluidos los factores de expansión, valores del jefe y del cónyuge,
+  media y máximo del resto y de todos por cada variable original de persona, conteos por
+  rol), sin variables construidas ni auxiliares. Corrida B: la base de A con los
+  auxiliares anidados (1.324 columnas).
+- **Regresión distribucional**: 19 cuantiles (0,05 a 0,95) de log(Ingpcug/Lp) con
+  LightGBM sobre a4, anidados; de ellos salen P(Ingpcug < Lp) implícita (interpolada),
+  mediana y ancho intercuantil. Se usan para clasificar directo y como variables en A.
+  NGBoost y LightGBMLSS no se instalaron porque fijan versiones de numpy, pandas y torch
+  incompatibles con el entorno.
+- **DeepSets con atención** (`funciones/conjuntos.py`): cada hogar como conjunto de sus
+  personas (152 variables por persona) más 121 de hogar; codificador compartido, agregación
+  por suma, media, máximo y atención, parada temprana en un 10 % interno; 3 semillas y
+  mezcla con LightGBM con pesos elegidos en OOF.
+- **GPBoost**: boosting con intercepto aleatorio por dominio (bernoulli-logit) sobre A.
+- **KNN fuera de fold**: tasa de pobreza de los 10, 50 y 200 vecinos más cercanos en las
+  60 variables de mayor ganancia estandarizadas, calculada solo con el entrenamiento de
+  cada contexto (y con 5 folds internos para las filas de entrenamiento), añadida a A.
+
+| Candidato | F1 CV (sd) | F1 holdout | Prec. | Recall | F1 banda [0,8; 1,2] Lp | Min | Δ CV | Δ holdout | Corr. OOF con LightGBM |
+|---|---|---|---|---|---|---|---|---|---|
+| base: `n7_a_agregados_bag5` | 0,7748 (0,005) | 0,7806 | 0,748 | 0,816 | 0,650 | | | | 1 |
+| referencia: `n12_a_1s` | 0,7737 (0,005) | 0,7798 | 0,743 | 0,820 | 0,653 | 6,7 | −0,0011 | −0,0008 | 0,9996 |
+| AutoGluon A (base cruda) | 0,7622 (0,005) | 0,7635 | 0,746 | 0,782 | 0,618 | 44,6 | −0,0125 | −0,0171 | 0,967 |
+| AutoGluon B (base de A) | 0,7715 (0,003) | 0,7771 | 0,756 | 0,800 | 0,645 | 100,3 | −0,0033 | −0,0035 | 0,990 |
+| cuantiles directo (P(<Lp) + umbral OOF) | 0,7532 (0,003) | 0,7567 | 0,723 | 0,793 | 0,631 | 6,8 | −0,0216 | −0,0239 | 0,948 |
+| A + cuantiles (1 semilla) | 0,7750 (0,004) | 0,7777 | 0,747 | 0,811 | 0,647 | 4,4 | +0,0002 | −0,0029 | 0,993 |
+| DeepSets (1 semilla) | 0,7505 (0,003) | 0,7529 | 0,726 | 0,782 | 0,625 | 6,0 | −0,0242 | −0,0277 | 0,949 |
+| DeepSets (bagging 3 semillas) | 0,7538 (0,002) | 0,7582 | 0,728 | 0,791 | 0,631 | 17,1 | −0,0210 | −0,0224 | 0,956 |
+| LightGBM 0,90 + DeepSets 0,10 (pesos OOF) | 0,7751 (0,005) | 0,7812 | 0,753 | 0,812 | 0,648 | | +0,0004 | +0,0006 | 0,9996 |
+| GPBoost por dominio (1 semilla) | 0,7710 (0,005) | 0,7737 | 0,758 | 0,790 | 0,632 | 2,7 | −0,0038 | −0,0069 | 0,991 |
+| A + KNN fuera de fold (1 semilla) | 0,7732 (0,004) | 0,7816 | 0,746 | 0,821 | 0,655 | 4,4 | −0,0016 | +0,0010 | 0,996 |
+
+Los deltas son frente a `n7_a_agregados_bag5` (los minutos del cierre incluyen la OOF, el
+holdout y, en AutoGluon, el leaderboard y la importancia por permutación). **Ningún
+candidato cumple la regla** de +0,002 en CV y en holdout, de modo que la etapa no genera
+CSV. Lo que se aprendió:
+
+- AutoGluon sobre la base cruda (ensamble ponderado de LightGBM, XGBoost, CatBoost,
+  LightGBM extra trees, LightGBM grande y una red; CatBoost con bagging consumió 29 de los
+  40 minutos) queda 1,7 puntos de holdout por debajo; sus variables más importantes por
+  permutación son arriendo, tenencia, número de miembros no jefe ni cónyuge, el ingreso de
+  desocupados y la edad media, es decir, las mismas señales que ya usamos. Sobre nuestra
+  base (cinco redes y LightGBM extra trees; el LightGBM normal no terminó en 55 minutos)
+  queda 0,35 puntos por debajo, y sus variables más importantes son nuestros auxiliares de
+  ingreso anidados. Lo que AutoGluon tiene y nosotros no es el ensamble automático de
+  redes y árboles; lo que nos da ventaja son los auxiliares con OOF anidada, que valen
+  1,4 puntos de holdout entre la corrida A y la B.
+- Los cuantiles quedan bien calibrados (cobertura OOF a menos de 0,01 de cada alfa,
+  `etapa12_cuantiles_calibracion.csv`), pero la P(<Lp) implícita correlaciona 0,993 en OOF
+  con la base: no hay información nueva sobre los auxiliares de ingreso.
+- DeepSets sola rinde como el resto de redes (etapas 8 y 10), 2,2 puntos por debajo; la
+  curva de pesos de la mezcla es plana entre 0,05 y 0,20 de red
+  (`etapa12_pesos_lgb_conjuntos.csv`).
+- GPBoost estima una varianza del intercepto por dominio cercana a cero: las dummies de
+  dominio y los auxiliares ya absorben esa heterogeneidad.
+- El KNN fuera de fold es la única variable que sube en holdout (+0,0018 frente a la
+  referencia de 1 semilla), pero baja en CV y no cruza el umbral.
+
+Tablas en `views/tablas/nivel7/etapa12_*.csv` (`etapa12_resumen.csv` es la de arriba).
 
 ## Decisiones de diseño
 

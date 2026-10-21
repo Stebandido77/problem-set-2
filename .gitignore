@@ -64,3 +64,6 @@ stores/modelos/
 stores/rapido/
 # Registro de la corrida por candidato (hora, etapa y RAM): se regenera
 stores/logs/
+
+# ---- Entorno aparte de AutoGluon (etapa 12) ----
+python/.venv_autogluon/

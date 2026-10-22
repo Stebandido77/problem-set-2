@@ -89,7 +89,7 @@ class ColoniaAbejas:
         """Máscara con densidad al azar entre 0,4 y 0,9 e hiperparámetros uniformes."""
         densidad = self.rng.uniform(0.4, 0.9)
         mascara = (self.rng.random(self.n_binarias) < densidad).astype(float)
-        if mascara.sum() == 0:
+        if self.n_binarias and mascara.sum() == 0:
             mascara[self.rng.integers(self.n_binarias)] = 1
         return np.concatenate([mascara, self.rng.random(self.dimension - self.n_binarias)])
 
@@ -116,12 +116,14 @@ class ColoniaAbejas:
         # Una posición continua, con la fórmula original
         j = self.rng.integers(self.n_binarias, self.dimension)
         z[j] = np.clip(z[j] + self.rng.uniform(-1, 1) * (z[j] - otra[j]), 0, 1)
-        # Algunos bits de la máscara, con la versión binaria (sigmoide)
-        for b in self.rng.choice(self.n_binarias, size=min(self.bits, self.n_binarias), replace=False):
-            paso = z[b] + self.rng.uniform(-1, 1) * (z[b] - otra[b])
-            z[b] = float(self.rng.random() < 1 / (1 + np.exp(-10 * (paso - 0.5))))
-        if z[:self.n_binarias].sum() == 0:
-            z[self.rng.integers(self.n_binarias)] = 1
+        # Algunos bits de la máscara, con la versión binaria (sigmoide); sin
+        # máscara (n_binarias = 0) la colonia solo se mueve en los continuos
+        if self.n_binarias:
+            for b in self.rng.choice(self.n_binarias, size=min(self.bits, self.n_binarias), replace=False):
+                paso = z[b] + self.rng.uniform(-1, 1) * (z[b] - otra[b])
+                z[b] = float(self.rng.random() < 1 / (1 + np.exp(-10 * (paso - 0.5))))
+            if z[:self.n_binarias].sum() == 0:
+                z[self.rng.integers(self.n_binarias)] = 1
         return z
 
     def intentar(self, i, fase):

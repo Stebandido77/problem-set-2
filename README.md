@@ -51,6 +51,7 @@ uno que prediga bien **y** que se pueda aplicar con una encuesta corta y barata.
 │   ├── etapa12_enfoques.py           # Cuantiles, DeepSets, GPBoost, KNN fuera de fold
 │   ├── etapa12_autogluon.py          # AutoGluon (entorno aparte: requirements_autogluon.txt)
 │   ├── etapa13_mezcla_final.py       # Mezcla final desde predicciones guardadas (sin reentrenar)
+│   ├── etapa14_busquedas.py          # Programación genética de variables + colonia de abejas sobre RealMLP
 │   ├── diagnostico_forense.py        # Auditoría de datos, fugas, submissions y shift
 │   ├── funciones/                    # Variables v2, OOF anidada, auxiliares, métricas
 │   └── tests/                        # Partición igual a R y auxiliares sin fuga
@@ -179,6 +180,8 @@ python/.venv_autogluon/Scripts/python.exe python/etapa12_autogluon.py --corrida 
 python/.venv_autogluon/Scripts/python.exe python/etapa12_autogluon.py --corrida B --minutos 55
 for e in distribucional deepsets gpboost knn cierre; do python/.venv/Scripts/python.exe python/etapa12_enfoques.py $e; done
 python/.venv/Scripts/python.exe python/etapa13_mezcla_final.py
+for e in genetico abejas cierre; do python/.venv/Scripts/python.exe python/etapa14_busquedas.py $e; done
+# Si un proceso murió antes del contexto test, --sin-test cierra el candidato desde sus parciales sin entrenar
 Rscript scripts/08_leaderboard.R && Rscript scripts/10_mejor_modelo.R
 ```
 
@@ -351,6 +354,90 @@ combinaciones de cada grilla están a menos de 0,0003 de F1 OOF entre sí) y el 
 +0,0003 en CV y −0,0001 en holdout frente a la mezcla de tres, así que no justifica
 reajustarlo sobre el 100 % para meterlo en el CSV. Tablas en
 `views/tablas/nivel7/etapa13_*.csv`.
+
+### Etapa 14: programación genética de variables y colonia de abejas sobre RealMLP
+
+`etapa14_busquedas.py` corre tres experimentos desacoplados, cada uno con su tope de
+minutos y corte duro (genético 120, abejas 90, cierre 15), con los mismos folds, holdout y
+OOF anidada del pipeline y con el F1 de la clase pobre con umbral OOF como aptitud en las
+dos búsquedas. Las bases son `n13_mezcla_final` (CV 0,7753 / holdout 0,7820; regla del CSV)
+y `n7_a_agregados_bag5` (correlación OOF y mezclas). Todo lo que se construye con la
+etiqueta se ajusta solo con el entrenamiento de cada contexto.
+
+**Programación genética de variables.** `funciones/formulas.py` envuelve el
+`SymbolicTransformer` de gplearn sobre las 60 variables de más gain de la etapa 7: población
+1.000, 25 generaciones, torneo 20, cruce 0,7, mutación de subárbol 0,1, de elevación 0,05 y de
+punto 0,1, parsimonia 0,0005, funciones +, −, ×, ÷, log, máx y mín. La aptitud es el F1 con
+umbral óptimo del pipeline sobre una submuestra del 25 % del entrenamiento del contexto (la
+salida del programa se pasa a rangos y se toma la mejor de las dos orientaciones), y de las 50
+mejores del salón de la fama quedan las 15 menos correlacionadas. Se ajusta por contexto (7
+ajustes de ~3 min) en un subproceso liviano (`python -m funciones.formulas`), porque los
+workers de gplearn en Windows reimportan el módulo principal y mueren si este carga torch.
+Las 15 fórmulas se agregan a la base de A y se ajustan LightGBM n6 y XGBoost con n6 traducido
+(`hist`, `lossguide`, `max_leaves` 31, `min_child_weight` 27 ≈ 171 × 0,16 de hessiana media,
+`gamma`, `subsample` y `colsample_bynode` de n6): primero una semilla contra la referencia
+de una semilla `n12_a_1s`, y bagging de 5 solo si mejora +0,002 en CV y en holdout.
+
+| Candidato (1 semilla) | F1 CV (sd) | F1 holdout | Δ CV vs `n12_a_1s` | Δ holdout | Minutos |
+|---|---|---|---|---|---|
+| `n14_a_gp_lgb_s0` (A + 15 fórmulas, LightGBM n6) | 0,7741 (0,0035) | 0,7785 | +0,0004 | −0,0013 | 8,5 |
+| `n14_a_gp_xgb_s0` (A + 15 fórmulas, XGBoost n6) | 0,7740 (0,0044) | 0,7788 | +0,0003 | −0,0009 | 21,2 |
+
+Ninguno pasa la regla, así que no hubo bagging. Las fórmulas ganadoras
+(`views/tablas/nivel7/etapa14_gp_formulas.csv`, 105 fórmulas de longitud 1 a 25, mediana 5)
+dicen por qué: las 105 usan `log_ingreso_pred_pc_lp_v3`, 73 `arriendo_por_persona_lp`, 30
+`tenencia_propia_pagada`, 30 `log_arriendo_relativo`, 14 `tenencia_usufructo` y 14
+`cuartos_por_persona`, casi siempre sumadas (312 sumas, 61 máximos, 17 mínimos, 1 resta y 1
+división). Como la aptitud es invariante a transformaciones monótonas, el genético suma el
+ingreso predicho consigo mismo y le agrega términos de arriendo y tenencia. Las mejores por
+contexto, simplificadas: `cv_1` (F1 0,7597) `3·ingreso_pred + arriendo_por_persona +
+tenencia_propia_pagada + tenencia_usufructo`; `cv_2` (0,7480) `ingreso_pred +
+arriendo_por_persona`; `cv_3` (0,7397) y `cv_4` (0,7430) `2·ingreso_pred +
+arriendo_por_persona`; `cv_5` (0,7523) `3·ingreso_pred + 2·arriendo_por_persona +
+mín(tenencia_propia_pagada, cuartos_por_persona)`; holdout (0,7387) y test (0,7413)
+`máx(log_arriendo_relativo, ingreso_pred)`. Son combinaciones de variables que los árboles ya
+tienen por separado, de ahí la correlación OOF de 0,998 con LightGBM y la ausencia de mejora.
+
+**Colonia de abejas sobre RealMLP.** `funciones/abejas.py` (3 fuentes, límite de abandono
+2) se mueve en seis posiciones continuas en [0, 1] decodificadas a capas {2, 3, 4}, ancho
+{128, 256, 384, 512}, dropout [0, 0,4], lr [0,005, 0,08] (log), weight decay [1e-4, 5e-2]
+(log) y embeddings numéricos PBLD sí/no; la configuración de la etapa 10 entra en la
+población inicial. La aptitud es el F1 OOF (umbral óptimo) de los folds 1 a 3, cada uno
+ajustado con una submuestra estratificada del 25 % de su entrenamiento (26.393 hogares) y
+evaluado completo. Una evaluación sin embeddings tarda 1,3 min y una con PBLD 8,5 min, así
+que un ciclo (7 evaluaciones) necesita ~60 min: con 90 min de presupuesto y 40 reservados
+para la evaluación completa la colonia se quedó en el ciclo 0 con las 3 evaluaciones
+iniciales (`etapa14_abc_historia.csv`): etapa 10 (3 × 256, dropout 0,15, lr 0,02, wd 0,01,
+sin embeddings) 0,7566; 3 × 256 con dropout 0,39, lr 0,064, wd 0,0052 y PBLD 0,7580; 4 × 256
+con PBLD 0,7550. La mejor se evaluó completa (`n14_realmlp_abc_s0`): 5 folds y holdout en
+67 min (~11 min por contexto con PBLD). El proceso murió por falta de memoria del sistema
+antes del contexto test, y la opción nueva `--sin-test` lo cerró desde los parciales de los
+5 folds y el holdout sin entrenar nada (sin test no hay CSV posible; al volver a correr sin
+la opción solo se ajusta el test). Frente a `n10_realmlp_s0`: CV −0,0003, holdout +0,0040.
+
+**Cierre.** Tabla con las bases, los candidatos y la mezcla de cada uno con
+`n7_a_agregados_bag5` (pesos en {0, 0,05, …, 0,5} elegidos solo en OOF, umbral OOF). Banda
+de Lp = F1 en los hogares del holdout cuyo ingreso per cápita observado está entre 0,8 y 1,2
+veces la línea de pobreza.
+
+| Candidato | F1 CV (sd) | F1 holdout | Prec. | Recall | Banda Lp | Corr. OOF con LightGBM | Δ CV vs n13 | Δ holdout vs n13 |
+|---|---|---|---|---|---|---|---|---|
+| base: `n13_mezcla_final` | 0,7753 (0,0049) | 0,7820 | 0,749 | 0,818 | 0,653 | 0,9993 | | |
+| base: `n7_a_agregados_bag5` | 0,7748 (0,0050) | 0,7806 | 0,748 | 0,816 | 0,650 | 1 | −0,0006 | −0,0014 |
+| `n14_a_gp_lgb_s0` | 0,7741 (0,0035) | 0,7785 | 0,755 | 0,803 | 0,643 | 0,9982 | −0,0012 | −0,0035 |
+| mezcla 0,85 base + 0,15 `n14_a_gp_lgb_s0` | 0,7750 (0,0046) | 0,7799 | 0,751 | 0,811 | 0,648 | 1,0000 | −0,0003 | −0,0021 |
+| `n14_a_gp_xgb_s0` | 0,7740 (0,0044) | 0,7788 | 0,751 | 0,809 | 0,647 | 0,9975 | −0,0014 | −0,0032 |
+| mezcla 0,90 base + 0,10 `n14_a_gp_xgb_s0` | 0,7750 (0,0046) | 0,7805 | 0,752 | 0,812 | 0,648 | 1,0000 | −0,0004 | −0,0015 |
+| `n14_realmlp_abc_s0` (sin test) | 0,7660 (0,0041) | 0,7757 | 0,739 | 0,816 | 0,654 | 0,9847 | −0,0093 | −0,0063 |
+| mezcla 0,95 base + 0,05 `n14_realmlp_abc_s0` (sin test) | 0,7748 (0,0047) | 0,7804 | 0,752 | 0,811 | 0,648 | 1,0000 | −0,0005 | −0,0016 |
+
+Ningún candidato ni mezcla supera a `n13_mezcla_final` en CV y en holdout, así que la etapa
+no genera CSV ni toca la bitácora; los seis candidatos quedan en el leaderboard del nivel 7
+sin archivo. Las curvas de pesos son planas (`etapa14_pesos_*.csv`: la base sola está a menos
+de 0,0003 de F1 OOF de la mejor mezcla). Tiempo usado: genético 53 min de 120; abejas 94 min
+de 90 (el reloj compartido entre relanzamientos contó los 9 min entre la muerte del proceso y
+el cierre con `--sin-test`, que se lanzó con `--minutos 120` para que el corte duro no lo
+matara); cierre 0,1 min. Tablas en `views/tablas/nivel7/etapa14_*.csv`.
 
 ## Decisiones de diseño
 

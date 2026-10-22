@@ -43,5 +43,24 @@ PARAMETROS_N6 = {
 UMBRAL_N6 = 0.35500138702806505
 F1_HOLDOUT_N6 = 0.7487895186556537
 
+# Los mismos hiperparámetros de n6 traducidos a XGBoost (etapa 14): histogramas con
+# crecimiento por hoja (lossguide, max_leaves = num_leaves), misma profundidad, tasa
+# y rondas; subsample y colsample_bynode son bagging_fraction y
+# feature_fraction_bynode; gamma es min_gain_to_split. XGBoost no tiene
+# min_data_in_leaf: min_child_weight (suma de hessianas p(1 - p), ~0,16 con la tasa
+# de pobres de 0,2) aproxima las 171 filas por hoja con 171 x 0,16 ~ 27.
+PARAMETROS_N6_XGBOOST = {
+    "tree_method": "hist",
+    "grow_policy": "lossguide",
+    "num_boost_round": PARAMETROS_N6["num_iterations"],
+    "learning_rate": PARAMETROS_N6["learning_rate"],
+    "max_depth": PARAMETROS_N6["max_depth"],
+    "max_leaves": PARAMETROS_N6["num_leaves"],
+    "min_child_weight": 27,
+    "gamma": PARAMETROS_N6["min_gain_to_split"],
+    "subsample": PARAMETROS_N6["bagging_fraction"],
+    "colsample_bynode": PARAMETROS_N6["feature_fraction_bynode"],
+}
+
 # Ciudades (Dominio) con peor F1 de n6_lightgbm en el holdout (etapa 0)
 CIUDADES_PEOR_F1 = ["BUCARAMANGA", "MANIZALES", "PEREIRA", "BOGOTA", "IBAGUE"]

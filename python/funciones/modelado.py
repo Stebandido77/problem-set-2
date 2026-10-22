@@ -87,6 +87,31 @@ def crear_ajuste_lightgbm(parametros, semillas=(SEMILLA,)):
     return ajustar
 
 
+def crear_ajuste_xgboost(parametros, semillas=(SEMILLA,)):
+    """Función ajustar() de XGBoost (histogramas) con seed bagging para evaluar_modelo().
+
+    Argumentos: parametros = hiperparámetros de XGBoost con num_boost_round
+        (PARAMETROS_N6_XGBOOST); semillas = semillas cuyas probabilidades se promedian.
+    Devuelve: función(x_ent, y_ent, x_eval) -> (probabilidad, importancia), con la
+        importancia como total_gain promedio de las semillas.
+    """
+    def ajustar(x_ent, y_ent, x_eval):
+        import xgboost as xgb  # noqa: PLC0415 (carga pesada, solo si se usa)
+        parametros_xgb = {**parametros, "objective": "binary:logistic", "nthread": N_HILOS, "verbosity": 0}
+        rondas = parametros_xgb.pop("num_boost_round")
+        entrenamiento = xgb.DMatrix(x_ent, label=y_ent, nthread=N_HILOS)
+        evaluacion = xgb.DMatrix(x_eval, nthread=N_HILOS)
+        probabilidad, ganancia = np.zeros(len(x_eval)), pd.Series(0.0, index=x_ent.columns)
+        for semilla in semillas:
+            modelo = xgb.train({**parametros_xgb, "seed": semilla}, entrenamiento, num_boost_round=rondas)
+            probabilidad += modelo.predict(evaluacion) / len(semillas)
+            ganancia = ganancia.add(pd.Series(modelo.get_score(importance_type="total_gain"), dtype=float),
+                                    fill_value=0.0)
+        return probabilidad, ganancia / len(semillas)
+
+    return ajustar
+
+
 def evaluar_modelo(nombre, preparar, ajustar, particion, con_test=False, guardar=True, reanudable=False):
     """CV + umbral OOF + holdout (+ test) de cualquier algoritmo, con el mismo
     protocolo que evaluar_candidato() en R.

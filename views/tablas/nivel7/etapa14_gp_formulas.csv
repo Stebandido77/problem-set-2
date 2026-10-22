@@ -1,0 +1,106 @@
+contexto,orden,formula,aptitud,longitud
+cv_1,1,"add(tenencia_usufructo, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))))",0.7597065664698515,11
+cv_1,2,"add(tenencia_usufructo, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))))",0.7557218692890088,13
+cv_1,3,"add(tenencia_usufructo, add(add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))))",0.7552719200887902,15
+cv_1,4,"add(log_ingreso_pred_pc_lp_v3, add(tenencia_usufructo, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))), arriendo_por_persona_lp))))",0.7535248973764055,19
+cv_1,5,"add(log_ingreso_pred_pc_lp_v3, add(add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))",0.7531263664188894,13
+cv_1,6,"add(tenencia_usufructo, max(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))))",0.7529277349328763,15
+cv_1,7,"add(tenencia_usufructo, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))), add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))))",0.7523741265006272,21
+cv_1,8,"add(tenencia_usufructo, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))))))",0.752108512303278,19
+cv_1,9,"add(tenencia_usufructo, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), arriendo_por_persona_lp))))))",0.7516860821581851,19
+cv_1,10,"add(tenencia_usufructo, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))), add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), arriendo_por_persona_lp))))))",0.7516766678432757,25
+cv_1,11,"add(tenencia_usufructo, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, add(arriendo_por_persona_lp, arriendo_por_persona_lp)))))",0.7510750119445772,13
+cv_1,12,"add(tenencia_usufructo, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), arriendo_por_persona_lp)))))))",0.7499103621369666,21
+cv_1,13,"add(tenencia_usufructo, add(log_ingreso_pred_pc_lp_v3, add(add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))))",0.749609769534478,17
+cv_1,14,"add(log_ingreso_pred_pc_lp_v3, add(tenencia_usufructo, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))))))))",0.7495725726626473,21
+cv_1,15,"add(tenencia_usufructo, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, tenencia_propia_pagada), add(add(add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), tenencia_propia_pagada), add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))))",0.7494364800288522,21
+cv_2,1,"add(log_ingreso_pred_pc_lp_v3, max(arriendo_por_persona_lp, arriendo_por_persona_lp))",0.7479531648912756,5
+cv_2,2,"add(log_ingreso_pred_pc_lp_v3, max(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), arriendo_por_persona_lp))",0.7467684566669558,7
+cv_2,3,"add(log_ingreso_pred_pc_lp_v3, max(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), arriendo_por_persona_lp))",0.7443068663953589,9
+cv_2,4,"add(log_ingreso_pred_pc_lp_v3, max(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, max(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, max(max(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), arriendo_por_persona_lp), arriendo_por_persona_lp))), arriendo_por_persona_lp))), arriendo_por_persona_lp))",0.7421305353014405,21
+cv_2,5,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, max(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))",0.7399964745284682,7
+cv_2,6,"add(log_ingreso_pred_pc_lp_v3, max(add(log_ingreso_pred_pc_lp_v3, sub(prop_contributivo, tenencia_arriendo)), arriendo_por_persona_lp))",0.7393457117595048,9
+cv_2,7,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7392515230635335,5
+cv_2,8,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.738541217091066,5
+cv_2,9,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7384186046511628,5
+cv_2,10,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.737760124341594,5
+cv_2,11,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7377104949821398,5
+cv_2,12,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, max(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), arriendo_por_persona_lp)))",0.7376272376272376,9
+cv_2,13,"add(log_ingreso_pred_pc_lp_v3, max(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, max(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), arriendo_por_persona_lp))), arriendo_por_persona_lp))",0.7373468300479489,13
+cv_2,14,"add(log_ingreso_pred_pc_lp_v3, max(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))), arriendo_por_persona_lp))",0.7369958021536777,13
+cv_2,15,"add(log_ingreso_pred_pc_lp_v3, max(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), arriendo_por_persona_lp))",0.7369557394746311,9
+cv_3,1,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7396523920444364,5
+cv_3,2,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))",0.7393747804706708,7
+cv_3,3,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(div(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), arriendo_por_persona_lp)))",0.7391825814189501,9
+cv_3,4,"add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)",0.7390239636172818,3
+cv_3,5,"add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))",0.7388059701492538,9
+cv_3,6,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), arriendo_por_persona_lp)))",0.7379099256668125,9
+cv_3,7,"add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), arriendo_por_persona_lp))",0.7372407574391343,9
+cv_3,8,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))",0.7371754274857505,7
+cv_3,9,"add(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.736278941057098,9
+cv_3,10,"add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)",0.7362435482459977,3
+cv_3,11,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))",0.7362360561353005,7
+cv_3,12,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))",0.7362028933738167,7
+cv_3,13,"add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)",0.7361973925977776,3
+cv_3,14,"add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)",0.7360057782592994,3
+cv_3,15,"add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)",0.7359479486716067,3
+cv_4,1,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7430444798865852,5
+cv_4,2,"add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)",0.7424640173802842,3
+cv_4,3,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)))",0.7387630348795398,7
+cv_4,4,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7384538570358659,5
+cv_4,5,log_ingreso_pred_pc_lp_v3,0.7382761330888132,1
+cv_4,6,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7381523961945408,5
+cv_4,7,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7380211574362165,5
+cv_4,8,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7379831186139494,5
+cv_4,9,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7377919320594479,5
+cv_4,10,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7376966007102993,5
+cv_4,11,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7376637358693702,5
+cv_4,12,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7375646131683755,5
+cv_4,13,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7373017287471039,5
+cv_4,14,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.737208058477447,5
+cv_4,15,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))",0.7370854450075576,5
+cv_5,1,"add(add(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), arriendo_por_persona_lp), add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona)))",0.7522770312922716,13
+cv_5,2,"add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona))), arriendo_por_persona_lp))",0.7520378648435446,11
+cv_5,3,"add(add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), arriendo_por_persona_lp)), add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona)))",0.7515473032714411,15
+cv_5,4,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona)))))",0.7498055483536428,13
+cv_5,5,"add(add(add(log_ingreso_pred_pc_lp_v3, add(ag_todos_P6610_2_prop, add(log_ingreso_pred_pc_lp_v3, ag_todos_P7500s2_1_prop))), arriendo_por_persona_lp), add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona)))",0.7496757457846952,15
+cv_5,6,"add(add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), arriendo_por_persona_lp)), add(min(tenencia_propia_pagada, cuartos_por_persona), add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp))))",0.7489990212652371,19
+cv_5,7,"add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), add(add(pensiones_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), min(tenencia_propia_pagada, cuartos_por_persona))))",0.748439345368652,15
+cv_5,8,"add(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona)))))), add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona)))",0.7484208626601696,21
+cv_5,9,"add(add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), arriendo_por_persona_lp)), add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona))))",0.7474236123666607,17
+cv_5,10,"add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, laboral_pc_lp_v3))))",0.7471705001825484,11
+cv_5,11,"add(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_total, add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona)))), arriendo_por_persona_lp)",0.7470851231699833,11
+cv_5,12,"add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona)))",0.7462953044099268,9
+cv_5,13,"add(add(log_ingreso_pred_pc_lp_v3, add(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp)), arriendo_por_persona_lp)), add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona)))))",0.7462365591397849,19
+cv_5,14,"add(add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_total, add(add(log_ingreso_pred_pc_lp_v3, arriendo_por_persona_lp), add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona))))), arriendo_por_persona_lp)",0.7462232948958613,15
+cv_5,15,"add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, add(log_ingreso_pred_pc_lp_v3, min(tenencia_propia_pagada, cuartos_por_persona))))",0.7462039045553145,9
+holdout,1,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7386716325263811,3
+holdout,2,"max(log_arriendo_relativo, max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3))",0.7342637425234976,5
+holdout,3,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7342533132941659,3
+holdout,4,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7342361404993653,3
+holdout,5,"max(log_arriendo_relativo, max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3))",0.734208880550344,5
+holdout,6,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7341964965727342,3
+holdout,7,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7341596842323939,3
+holdout,8,"max(log_arriendo_relativo, max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3))",0.734118291347207,5
+holdout,9,"max(max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3), log_ingreso_pred_pc_lp_v3)",0.7340543538546866,5
+holdout,10,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7340226216084935,3
+holdout,11,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7339997223379148,3
+holdout,12,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7339891311824999,3
+holdout,13,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7339781504418621,3
+holdout,14,"max(max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3), log_ingreso_pred_pc_lp_v3)",0.7338966615874775,5
+holdout,15,"max(max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3), log_ingreso_pred_pc_lp_v3)",0.7338770474950311,5
+test,1,"max(max(max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3), log_ingreso_pred_pc_lp_v3), log_ingreso_pred_pc_lp_v3)",0.741341516878562,7
+test,2,"max(max(max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3), log_ingreso_pred_pc_lp_v3), log_ingreso_pred_pc_lp_v3)",0.7365902515023369,7
+test,3,"max(max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3), log_ingreso_pred_pc_lp_v3)",0.7365661861074705,5
+test,4,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7365508080584459,3
+test,5,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7365292114792196,3
+test,6,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7365082897518638,3
+test,7,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7364220793615607,3
+test,8,"max(log_arriendo_relativo, max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3))",0.7363284536429413,5
+test,9,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7363222727777161,3
+test,10,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7363222727777161,3
+test,11,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7363139200541241,3
+test,12,"max(max(max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3), log_ingreso_pred_pc_lp_v3), log_ingreso_pred_pc_lp_v3)",0.7362870407519917,7
+test,13,"max(log_arriendo_relativo, max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3))",0.7361654555617664,5
+test,14,"max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3)",0.7361563517915309,3
+test,15,"max(log_arriendo_relativo, max(log_arriendo_relativo, log_ingreso_pred_pc_lp_v3))",0.7360328036904151,5

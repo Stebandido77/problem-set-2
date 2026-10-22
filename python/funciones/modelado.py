@@ -17,16 +17,17 @@ from funciones.datos import imputar_mediana
 from funciones.metricas import buscar_umbral_f1, calcular_metricas, metricas_por_fold
 
 
-def ajustar_lightgbm(x_entrenamiento, y_entrenamiento, parametros, semilla=SEMILLA):
+def ajustar_lightgbm(x_entrenamiento, y_entrenamiento, parametros, semilla=SEMILLA, pesos=None):
     """Ajusta un LightGBM binario con hilos internos.
 
     Argumentos: x_entrenamiento, y_entrenamiento = datos; parametros = diccionario
-        de LightGBM (num_iterations incluido); semilla = semilla del motor.
+        de LightGBM (num_iterations incluido); semilla = semilla del motor;
+        pesos = peso de cada fila (None = todas pesan 1).
     Devuelve: booster ajustado.
     """
     parametros = {**parametros, "objective": "binary", "num_threads": N_HILOS,
                   "seed": semilla, "verbose": -1}
-    datos = lgb.Dataset(x_entrenamiento, label=y_entrenamiento, free_raw_data=True)
+    datos = lgb.Dataset(x_entrenamiento, label=y_entrenamiento, weight=pesos, free_raw_data=True)
     return lgb.train(parametros, datos)
 
 
@@ -68,18 +69,25 @@ def crear_preparador(matriz, particion, dinamicas=()):
     return preparar
 
 
-def crear_ajuste_lightgbm(parametros, semillas=(SEMILLA,)):
+def crear_ajuste_lightgbm(parametros, semillas=(SEMILLA,), columna_peso=None):
     """Función ajustar() de LightGBM con seed bagging para evaluar_modelo().
 
     Argumentos: parametros = hiperparámetros de LightGBM; semillas = semillas
-        cuyas probabilidades se promedian.
+        cuyas probabilidades se promedian; columna_peso = columna de x_ent (y de
+        x_eval, si viene) con el peso de cada fila: se saca de las variables y
+        entra como peso del ajuste (factores de expansión, pseudoetiquetas).
     Devuelve: función(x_ent, y_ent, x_eval) -> (probabilidad, importancia), con la
         importancia como gain promedio de las semillas.
     """
     def ajustar(x_ent, y_ent, x_eval):
+        pesos = None
+        if columna_peso is not None:
+            pesos = x_ent[columna_peso].to_numpy(np.float64)
+            x_ent = x_ent.drop(columns=columna_peso)
+            x_eval = x_eval.drop(columns=columna_peso, errors="ignore")
         probabilidad, ganancia = np.zeros(len(x_eval)), 0
         for semilla in semillas:
-            modelo = ajustar_lightgbm(x_ent, y_ent, parametros, semilla)
+            modelo = ajustar_lightgbm(x_ent, y_ent, parametros, semilla, pesos)
             probabilidad += modelo.predict(x_eval) / len(semillas)
             ganancia = ganancia + pd.Series(modelo.feature_importance("gain"), index=x_ent.columns)
         return probabilidad, ganancia / len(semillas)

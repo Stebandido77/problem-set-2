@@ -22,6 +22,7 @@ frozenlist==1.8.0
 fsspec==2026.7.0
 gpboost==1.7.4
 gplearn==0.4.3
+interpret-core==0.7.8
 graphemeu==0.7.2
 graphviz==0.21
 idna==3.20

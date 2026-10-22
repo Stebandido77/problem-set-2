@@ -601,7 +601,7 @@ def cierre(entorno, reloj):
             archivo = f"nivel7/{ruta.name}"
             registrar_log(etapa, f"CSV {ruta.name} (tasa de pobres {tasa:.3f})")
         filas_lb.append(armar_fila(nombre, datos["algoritmo"], datos["especificacion"],
-                                   columnas + datos.get("variables_extra", []), datos["busqueda"],
+                                   datos.get("variables", columnas) + datos.get("variables_extra", []), datos["busqueda"],
                                    datos["n_configuraciones"], datos["hiperparametros"],
                                    leer_json("tiempos").get(nombre, pd.NA), archivo, verdad))
     if filas_lb and not MODO["prueba"]:

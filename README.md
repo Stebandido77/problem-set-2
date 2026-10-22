@@ -52,6 +52,7 @@ uno que prediga bien **y** que se pueda aplicar con una encuesta corta y barata.
 │   ├── etapa12_autogluon.py          # AutoGluon (entorno aparte: requirements_autogluon.txt)
 │   ├── etapa13_mezcla_final.py       # Mezcla final desde predicciones guardadas (sin reentrenar)
 │   ├── etapa14_busquedas.py          # Programación genética de variables + colonia de abejas sobre RealMLP
+│   ├── etapa15_modelos_politica.py   # Pseudoetiquetado, Fex_c como peso, EBM y análisis de política
 │   ├── diagnostico_forense.py        # Auditoría de datos, fugas, submissions y shift
 │   ├── funciones/                    # Variables v2, OOF anidada, auxiliares, métricas
 │   └── tests/                        # Partición igual a R y auxiliares sin fuga
@@ -182,6 +183,7 @@ for e in distribucional deepsets gpboost knn cierre; do python/.venv/Scripts/pyt
 python/.venv/Scripts/python.exe python/etapa13_mezcla_final.py
 for e in genetico abejas cierre; do python/.venv/Scripts/python.exe python/etapa14_busquedas.py $e; done
 # Si un proceso murió antes del contexto test, --sin-test cierra el candidato desde sus parciales sin entrenar
+python/.venv/Scripts/python.exe python/etapa15_modelos_politica.py todo   # o, desacoplado: Start-Process (ver la etapa 15)
 Rscript scripts/08_leaderboard.R && Rscript scripts/10_mejor_modelo.R
 ```
 
@@ -438,6 +440,116 @@ de 0,0003 de F1 OOF de la mejor mezcla). Tiempo usado: genético 53 min de 120; 
 de 90 (el reloj compartido entre relanzamientos contó los 9 min entre la muerte del proceso y
 el cierre con `--sin-test`, que se lanzó con `--minutos 120` para que el corte duro no lo
 matara); cierre 0,1 min. Tablas en `views/tablas/nivel7/etapa14_*.csv`.
+
+### Etapa 15: pseudoetiquetado, factores de expansión, EBM y análisis de política
+
+`etapa15_modelos_politica.py` corre seis experimentos desacoplados, cada uno con su tope
+de minutos, corte duro, vigilante de memoria y guardado reanudable por contexto. `todo` los
+encadena como subprocesos (relanzando el que salga por memoria) y se lanza con
+`Start-Process` para que no dependa de la terminal. Reutiliza la infraestructura de la
+etapa 14: una semilla contra `n12_a_1s`, bagging solo si mejora +0,002 en CV y holdout,
+cierre con mezclas con `n7_a_agregados_bag5` (pesos solo en OOF) y CSV solo si supera a
+`n13_mezcla_final` en CV y en holdout. Toda la corrida tomó 27 minutos de los 180 previstos
+porque ningún candidato pasó el gate.
+
+**Parte A, experimentos de modelo.**
+
+- *Ensamble por fold.* No hay predicciones de test de los cinco modelos de la CV de
+  `n7_a_agregados_bag5`: `evaluar_modelo()` predice en cada `cv_k` solo su fold de
+  validación y borra los parciales al terminar, así que se informa y se sigue
+  (`etapa15_ensamble_fold.csv`). `predicciones_test_por_fold()` queda lista para leerlas de
+  `stores/procesados/nivel7/test_por_fold/` si alguna etapa las guarda.
+- *Pseudoetiquetado* (`n15_pseudo_s0`). En cada contexto, el LightGBM n6 ajustado solo con su
+  entrenamiento predice el test de Kaggle; los hogares con P(pobre) ≥ 0,95 o ≤ 0,05 (unos
+  42.250 por contexto, el 64 % del test: ~2.260 pobres y ~40.000 no pobres) entran al
+  entrenamiento con su etiqueta predicha y peso 0,5 (columna `peso_fila`, que
+  `crear_ajuste_lightgbm()` convierte en `sample_weight`). Las etiquetas nunca ven el holdout
+  ni el fold de validación; la única salvedad es que las variables de esos hogares (los
+  auxiliares de ingreso) son las del contexto test, porque las matrices de A no tienen
+  auxiliares por fold para el test. Resultado: CV 0,7744 (sd 0,0037) / holdout 0,7805,
+  +0,0007 y +0,0008 frente a `n12_a_1s`. No pasa el gate, aunque con una sola semilla iguala
+  al bagging de cinco (0,7748 / 0,7806) y baja la desviación entre folds.
+- *Factores de expansión como pesos* (`n15_fex_s0`). LightGBM n6 sobre A con
+  `sample_weight = Fex_c / media(Fex_c)` del entrenamiento de cada contexto (el factor no
+  entra como variable). CV 0,7715 / holdout 0,7755, −0,0022 y −0,0043 frente a `n12_a_1s`.
+  Tampoco gana en la métrica que optimiza: el F1 de holdout ponderado por Fex_c es 0,7778
+  contra 0,7776 de `n12_a_1s`, 0,7790 de `n7_a_agregados_bag5` y 0,7820 de
+  `n13_mezcla_final` (`etapa15_fex.csv`), mientras el F1 sin ponderar, el de Kaggle, cae
+  0,004.
+- *EBM* (`n15_ebm_top60_s0`). `ExplainableBoostingClassifier` de interpret sobre las 60
+  variables de más gain de A, 20 interacciones elegidas por el propio EBM, 8 bolsas y early
+  stopping: 6,4 minutos los siete contextos. CV 0,7706 (sd 0,0051) / holdout 0,7768, −0,0031
+  y −0,0030 frente a `n12_a_1s`, que usa las 1.323 variables. Su mezcla 0,85 + 0,15 con
+  `n7_a_agregados_bag5` da el mejor CV de la etapa (0,7754, +0,0001 sobre n13) pero
+  −0,0017 en holdout. Las curvas de las 10 variables más importantes están en
+  `views/figuras/nivel7/ebm_01_*.png` a `ebm_10_*.png` (aporte al log-odds por tramo, con la
+  banda entre bolsas y la densidad de hogares) y la importancia de los 15 términos
+  principales en `ebm_importancia.png` (`etapa15_ebm_importancia.csv`). Mandan el ingreso
+  total predicho (0,567; aporte positivo hasta ~2 millones y un escalón a −2,3 pasados los
+  5 millones), el arriendo por persona relativo a Lp (0,496), la tenencia propia pagada
+  (0,434), el log del ingreso per cápita predicho sobre Lp (0,408) y tres proporciones de
+  perceptores de ingresos no laborales de la GEIH; la interacción más fuerte es arriendo por
+  persona × tenencia propia pagada (0,394).
+
+| Candidato | F1 CV (sd) | F1 holdout | Prec. | Recall | Banda Lp | Corr. OOF con LightGBM | Δ CV vs n13 | Δ holdout vs n13 |
+|---|---|---|---|---|---|---|---|---|
+| base: `n13_mezcla_final` | 0,7753 (0,0049) | 0,7820 | 0,749 | 0,818 | 0,653 | 0,9993 | | |
+| base: `n7_a_agregados_bag5` | 0,7748 (0,0050) | 0,7806 | 0,748 | 0,816 | 0,650 | 1 | −0,0006 | −0,0014 |
+| `n15_pseudo_s0` | 0,7744 (0,0037) | 0,7805 | 0,752 | 0,812 | 0,648 | 0,9992 | −0,0009 | −0,0015 |
+| mezcla 0,80 base + 0,20 `n15_pseudo_s0` | 0,7751 (0,0045) | 0,7799 | 0,752 | 0,810 | 0,647 | 1,0000 | −0,0002 | −0,0021 |
+| `n15_fex_s0` | 0,7715 (0,0048) | 0,7755 | 0,741 | 0,813 | 0,650 | 0,9931 | −0,0038 | −0,0065 |
+| mezcla 0,85 base + 0,15 `n15_fex_s0` | 0,7748 (0,0049) | 0,7790 | 0,750 | 0,811 | 0,646 | 0,9998 | −0,0005 | −0,0030 |
+| `n15_ebm_top60_s0` | 0,7706 (0,0051) | 0,7768 | 0,745 | 0,811 | 0,648 | 0,9886 | −0,0047 | −0,0052 |
+| mezcla 0,85 base + 0,15 `n15_ebm_top60_s0` | 0,7754 (0,0050) | 0,7803 | 0,748 | 0,816 | 0,650 | 0,9998 | +0,0001 | −0,0017 |
+
+Ninguno supera a `n13_mezcla_final` en CV y en holdout a la vez: no hay CSV nuevo ni cambios
+en la bitácora; los seis candidatos quedan en el leaderboard del nivel 7 sin archivo.
+
+**Parte B, análisis de política** (`funciones/politica.py`, con `n13_mezcla_final` en el
+holdout: 32.993 hogares, 6.605 pobres, umbral OOF 0,36; nada se reentrena). Subcobertura =
+pobres no incluidos / pobres; filtración = no pobres incluidos / incluidos.
+
+- *Errores por subgrupo* (`etapa15_errores_subgrupo.csv`, figura
+  `errores_subgrupo_n13_mezcla_final.png`). En total el modelo deja fuera al 18,2 % de los
+  pobres (1.201) e incluye 1.812 no pobres (25,1 % de los incluidos). Cuatro grupos superan
+  1,5 veces la subcobertura total (27,3 %): los hogares de una persona (33,6 %: 153 de 455
+  pobres) y de dos (28,5 %: 241 de 847), Manizales (35,7 %) y Pereira (28,6 %). Los hogares
+  de 5 o más personas, donde está el 36 % de los pobres, tienen la subcobertura más baja
+  (10,8 %). Zona (rural 17,8 % vs. urbano 18,2 %), jefatura (femenina 16,6 % vs. masculina
+  19,5 %) y adultos mayores sin pensión (17,3 % vs. 18,4 %) no muestran brechas. La
+  filtración también se concentra en los hogares de una y dos personas (32 %) y en Tunja,
+  Manizales y Bucaramanga (33 % a 36 %).
+- *Pesos de bienestar* (`etapa15_pesos_bienestar.csv`). Cada pobre excluido pesa su brecha
+  (1 − Ingpcug/Lp) y cada no pobre incluido su distancia a la línea (Ingpcug/Lp − 1).
+
+| Modelo | Subcobertura | Ponderada por brecha | Brecha media: excluidos / todos los pobres | Excluidos con ingreso ≥ 0,8 Lp | Excluidos con ingreso < 0,5 Lp | Filtración | Ponderada por distancia | Distancia media: incluidos / todos los no pobres |
+|---|---|---|---|---|---|---|---|---|
+| `n13_mezcla_final` | 18,2 % | 11,2 % | 0,224 / 0,365 | 58,8 % | 11,2 % | 25,1 % | 1,2 % | 0,51 / 2,83 |
+| `n3_logit` (48 variables) | 23,2 % | 16,6 % | 0,261 / 0,365 | 53,2 % | 14,8 % | 32,7 % | 1,7 % | 0,51 / 2,83 |
+| `nE_logit` (10 variables) | 31,6 % | 27,7 % | 0,320 / 0,365 | 43,3 % | 22,0 % | 41,4 % | 3,0 % | 0,71 / 2,83 |
+| encuesta corta, Logit de 8 variables | 26,0 % | 19,9 % | 0,280 / 0,365 | 47,9 % | 16,1 % | 39,8 % | 2,7 % | 0,63 / 2,83 |
+
+  Los pobres que excluye `n13_mezcla_final` son los que están cerca de la línea, no los más
+  pobres: su brecha media es 0,22 contra 0,37 del pobre promedio y 0,40 del pobre cubierto,
+  el 59 % tiene ingreso de al menos 0,8 Lp y la subcobertura ponderada por brecha baja a
+  11,2 %. Los no pobres que incluye están pegados a la línea (distancia media 0,51 contra
+  2,83 del no pobre promedio; el 45 % a menos del 20 % de Lp), así que la filtración
+  ponderada es del 1,2 %. Con modelos más simples la exclusión se corre hacia los más
+  pobres: el 22 % de los excluidos de `nE_logit` y el 16 % de los de la encuesta corta
+  están en pobreza extrema, contra el 11 % con n13. La encuesta corta de 8 variables (Logit
+  reajustado con los mismos folds, F1 OOF 0,6588, umbral 0,3212) queda entre `n3_logit` y
+  `nE_logit` en todas las medidas.
+- *Curva de cobertura* (`etapa15_curva_cobertura.csv`, `etapa15_curva_cobertura_puntos.csv`,
+  figura `curva_cobertura.png`): porcentaje de pobres cubiertos al atender el x % de hogares
+  de mayor probabilidad, con la tasa de pobreza del holdout en 20,0 %. En su umbral OOF,
+  `n13_mezcla_final` atiende al 21,9 % de los hogares y cubre al 81,8 % de los pobres;
+  `n3_logit` 22,9 % y 76,8 %; la encuesta corta 24,6 % y 74,0 %. Atendiendo al 25 % de los
+  hogares cubren el 86,8 %, 80,5 % y 74,7 %; al 30 %, el 92,9 %, 87,1 % y 81,5 %; al 40 %, el
+  98,2 %, 94,7 % y 90,6 %.
+
+Tiempo usado: fold 0 min, pseudoetiquetado 12,8, Fex_c 7,3, EBM 6,5, política 0,3 y cierre
+0,1 (27,4 min de 180). Tablas en `views/tablas/nivel7/etapa15_*.csv` y figuras en
+`views/figuras/nivel7/`.
 
 ## Decisiones de diseño
 

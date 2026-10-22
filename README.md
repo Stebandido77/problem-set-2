@@ -50,6 +50,7 @@ uno que prediga bien **y** que se pueda aplicar con una encuesta corta y barata.
 │   ├── etapa11_estrato.py            # Estrato como auxiliar y reconciliación del arriendo
 │   ├── etapa12_enfoques.py           # Cuantiles, DeepSets, GPBoost, KNN fuera de fold
 │   ├── etapa12_autogluon.py          # AutoGluon (entorno aparte: requirements_autogluon.txt)
+│   ├── etapa13_mezcla_final.py       # Mezcla final desde predicciones guardadas (sin reentrenar)
 │   ├── diagnostico_forense.py        # Auditoría de datos, fugas, submissions y shift
 │   ├── funciones/                    # Variables v2, OOF anidada, auxiliares, métricas
 │   └── tests/                        # Partición igual a R y auxiliares sin fuga
@@ -177,6 +178,7 @@ python/.venv/Scripts/python.exe python/etapa12_enfoques.py preparar
 python/.venv_autogluon/Scripts/python.exe python/etapa12_autogluon.py --corrida A --minutos 40
 python/.venv_autogluon/Scripts/python.exe python/etapa12_autogluon.py --corrida B --minutos 55
 for e in distribucional deepsets gpboost knn cierre; do python/.venv/Scripts/python.exe python/etapa12_enfoques.py $e; done
+python/.venv/Scripts/python.exe python/etapa13_mezcla_final.py
 Rscript scripts/08_leaderboard.R && Rscript scripts/10_mejor_modelo.R
 ```
 
@@ -319,6 +321,36 @@ CSV. Lo que se aprendió:
   referencia de 1 semilla), pero baja en CV y no cruza el umbral.
 
 Tablas en `views/tablas/nivel7/etapa12_*.csv` (`etapa12_resumen.csv` es la de arriba).
+
+### Etapa 13: mezcla final desde las predicciones guardadas
+
+`etapa13_mezcla_final.py` no reentrena nada: toma las predicciones OOF, de holdout y de
+test que ya estaban en caché y mezcla la base `n7_a_agregados_bag5` con los tres
+candidatos menos correlacionados con ella que dejaron las etapas 10 y 12: A + KNN fuera de
+fold (`n12_a_knn_1s`), RealMLP (`n10_realmlp_bag5`) y DeepSets con atención
+(`n12_conjuntos_bag3`). Los pesos se eligen solo en la OOF (todo el simplex de paso 0,05:
+1.771 vectores con cuatro candidatos y 231 con tres, F1 con el umbral óptimo) y el umbral
+también sale de la OOF; holdout y test reciben la misma combinación. La grilla incluye a la
+base sola, así que la mezcla nunca pierde contra ella en OOF.
+
+`n12_a_knn_1s` no tiene predicción de test (la etapa 12 no reajustó sobre el 100 % porque
+no pasó la regla), de modo que la mezcla de los cuatro se reporta solo en CV y holdout y el
+CSV sale de los tres candidatos con test.
+
+| Candidato | Pesos (elegidos en OOF) | F1 CV (sd) | F1 holdout | Prec. | Recall | Δ CV | Δ holdout | Corr. OOF con la base |
+|---|---|---|---|---|---|---|---|---|
+| base: `n7_a_agregados_bag5` | | 0,7748 (0,005) | 0,7806 | 0,748 | 0,816 | | | 1 |
+| `n13_mezcla_con_knn` (sin test) | 0,60 base + 0,20 KNN + 0,10 RealMLP + 0,10 DeepSets | 0,7756 (0,004) | 0,7819 | 0,748 | 0,818 | +0,0009 | +0,0013 | 0,9989 |
+| `n13_mezcla_final` | 0,80 base + 0,15 RealMLP + 0,05 DeepSets | 0,7753 (0,005) | 0,7820 | 0,749 | 0,818 | +0,0006 | +0,0014 | 0,9993 |
+
+Ninguna cumple la regla de +0,002 en CV y en holdout. Aun así `n13_mezcla_final.csv` se
+genera como submission extra (validada: 66.168 filas, tasa de pobres 0,232, difiere de
+`n7_a_agregados_bag5.csv` en 345 hogares, el 0,5 %), queda en la bitácora con `f1_kaggle`
+vacía y en el leaderboard del nivel 7. La curva de pesos es plana (las seis mejores
+combinaciones de cada grilla están a menos de 0,0003 de F1 OOF entre sí) y el KNN aporta
++0,0003 en CV y −0,0001 en holdout frente a la mezcla de tres, así que no justifica
+reajustarlo sobre el 100 % para meterlo en el CSV. Tablas en
+`views/tablas/nivel7/etapa13_*.csv`.
 
 ## Decisiones de diseño
 

@@ -51,8 +51,7 @@ import pandas as pd
 
 import funciones.bitacora as bitacora
 from configuracion import RUTA_NIVEL7, RUTA_TABLAS, SEMILLA
-from etapa4_leaderboard import (RUTA_LEADERBOARD_EXTRA, anexar_filas_extra, armar_fila, formatear_como_r,
-                                texto_hiperparametros)
+from etapa4_leaderboard import agregar_filas_extra, armar_fila, texto_hiperparametros
 from etapa7_exploracion import AUXILIARES_BASE, PESOS_MEZCLA, RUTA_ETAPA7, correr_seguro, fila_tabla
 from etapa8_cierre import grilla_simplex
 from etapa9_evolutivo import escribir_json, leer_json
@@ -349,12 +348,7 @@ def cerrar(entorno, resultados, descripciones, correlacion):
                                    descripcion["n_configuraciones"], descripcion["hiperparametros"],
                                    resultados[nombre].get("tiempo_min", pd.NA), archivo, verdad))
     # Se agregan a las filas de las etapas anteriores (no las reemplazan)
-    extra = pd.read_csv(RUTA_LEADERBOARD_EXTRA, dtype=str, keep_default_na=False)
-    nuevas = formatear_como_r(pd.DataFrame(filas_lb)).astype(str).replace({"<NA>": "NA", "nan": "NA"})
-    extra = pd.concat([extra[~extra["candidato"].isin(nuevas["candidato"])], nuevas[extra.columns]],
-                      ignore_index=True)
-    extra.to_csv(RUTA_LEADERBOARD_EXTRA, index=False)
-    anexar_filas_extra()
+    agregar_filas_extra(filas_lb)
     return tabla, elegido
 
 

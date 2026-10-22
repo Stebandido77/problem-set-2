@@ -183,6 +183,20 @@ def anexar_filas_extra():
     pd.concat([existente, nivel7], ignore_index=True).to_csv(ruta, index=False)
 
 
+def agregar_filas_extra(filas):
+    """Agrega filas nuevas a leaderboard_etapa7.csv (reemplazando las del mismo
+    candidato y sin tocar las demás) y las propaga con anexar_filas_extra().
+
+    Argumentos: filas = lista de diccionarios de armar_fila().
+    """
+    extra = pd.read_csv(RUTA_LEADERBOARD_EXTRA, dtype=str, keep_default_na=False)
+    nuevas = formatear_como_r(pd.DataFrame(filas)).astype(str).replace({"<NA>": "NA", "nan": "NA"})
+    extra = pd.concat([extra[~extra["candidato"].isin(nuevas["candidato"])], nuevas[extra.columns]],
+                      ignore_index=True)
+    extra.to_csv(RUTA_LEADERBOARD_EXTRA, index=False)
+    anexar_filas_extra()
+
+
 def archivos_finales():
     """Nombres de los CSV finales del nivel 7: los de CANDIDATOS y los de leaderboard_etapa7.csv."""
     finales = {Path(a).name for *_, a in CANDIDATOS.values() if a}

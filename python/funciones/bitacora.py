@@ -10,11 +10,15 @@ import psutil
 from configuracion import RUTA_LOGS
 
 ARCHIVO_LOG = RUTA_LOGS / "nivel7.log"
+# Archivos adicionales donde también se escribe cada línea (p. ej. el log de una
+# fase de la etapa 16); cada etapa los agrega al arrancar
+ARCHIVOS_LOG_EXTRA = []
 
 
 def registrar_log(etapa, evento, inicio=None):
     """Agrega una línea al log con la hora, la RAM del proceso y la del sistema.
 
+    La misma línea va a ARCHIVO_LOG y a cada archivo de ARCHIVOS_LOG_EXTRA.
     Argumentos: etapa = nombre corto de la etapa o candidato; evento = texto;
         inicio = time.time() del comienzo, para anotar los minutos transcurridos.
     Devuelve: la línea escrita.
@@ -28,8 +32,9 @@ def registrar_log(etapa, evento, inicio=None):
     )
     if inicio is not None:
         linea += f" | {(time.time() - inicio) / 60:.1f} min"
-    with open(ARCHIVO_LOG, "a", encoding="utf-8") as archivo:
-        archivo.write(linea + "\n")
+    for ruta in [ARCHIVO_LOG, *ARCHIVOS_LOG_EXTRA]:
+        with open(ruta, "a", encoding="utf-8") as archivo:
+            archivo.write(linea + "\n")
     print(linea, flush=True)
     return linea
 

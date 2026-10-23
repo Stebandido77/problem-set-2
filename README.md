@@ -53,8 +53,9 @@ uno que prediga bien **y** que se pueda aplicar con una encuesta corta y barata.
 │   ├── etapa13_mezcla_final.py       # Mezcla final desde predicciones guardadas (sin reentrenar)
 │   ├── etapa14_busquedas.py          # Programación genética de variables + colonia de abejas sobre RealMLP
 │   ├── etapa15_modelos_politica.py   # Pseudoetiquetado, Fex_c como peso, EBM y análisis de política
+│   ├── etapa16_evaluacion.py         # Evaluación definitiva: CV repetida, bootstrap pareado del holdout, MDE
 │   ├── diagnostico_forense.py        # Auditoría de datos, fugas, submissions y shift
-│   ├── funciones/                    # Variables v2, OOF anidada, auxiliares, métricas
+│   ├── funciones/                    # Variables v2, OOF anidada, auxiliares, métricas, repetición e inferencia
 │   └── tests/                        # Partición igual a R y auxiliares sin fuga
 ├── stores/
 │   ├── raw/                          # CSV de Kaggle (no se suben)
@@ -184,6 +185,7 @@ python/.venv/Scripts/python.exe python/etapa13_mezcla_final.py
 for e in genetico abejas cierre; do python/.venv/Scripts/python.exe python/etapa14_busquedas.py $e; done
 # Si un proceso murió antes del contexto test, --sin-test cierra el candidato desde sus parciales sin entrenar
 python/.venv/Scripts/python.exe python/etapa15_modelos_politica.py todo   # o, desacoplado: Start-Process (ver la etapa 15)
+python/.venv/Scripts/python.exe python/etapa16_evaluacion.py fase1       # o, desacoplado: Start-Process (ver la etapa 16)
 Rscript scripts/08_leaderboard.R && Rscript scripts/10_mejor_modelo.R
 ```
 
@@ -550,6 +552,86 @@ pobres no incluidos / pobres; filtración = no pobres incluidos / incluidos.
 Tiempo usado: fold 0 min, pseudoetiquetado 12,8, Fex_c 7,3, EBM 6,5, política 0,3 y cierre
 0,1 (27,4 min de 180). Tablas en `views/tablas/nivel7/etapa15_*.csv` y figuras en
 `views/figuras/nivel7/`.
+
+### Etapa 16: evaluación definitiva de las hipótesis
+
+Las etapas 7 a 15 compararon candidatos con una sola partición de 5 folds y un gate de
++0,002; las diferencias entre los mejores (0,7748 a 0,7753 en CV, 0,7806 a 0,7820 en
+holdout) son del orden del ruido de muestreo, y los candidatos se eligieron mirando esa
+misma partición y ese mismo holdout. `etapa16_evaluacion.py` mide si alguna mejora es
+real con un diseño pensado para eso, en fases con reporte al final de cada una.
+
+**Fase 1, precisión.** Validación cruzada repetida sobre el 80 %: tres particiones nuevas
+de 5 folds estratificados por `pobre` (`funciones/repeticion.py`, semillas 2126, 2226 y
+2326; la de R queda como referencia y no entra en las 15 evaluaciones porque sobre ella se
+eligieron los candidatos). En cada partición se recalculan los auxiliares de ingreso
+(laboral, total y fuentes v3) con la OOF anidada de siempre y `verificar_sin_fuga()`, y se
+escriben las matrices de A de sus cinco contextos `cv_k`
+(`stores/procesados/nivel7/etapa16/particion_r<r>/`). Los candidatos se reentrenan tal
+como fueron definidos: `n7_a_agregados_bag5`, `n7_v3_fuentes_bag5` y
+`n7_n6param_a4_total_bag5` con 5 semillas, CatBoost B3 con 1, RealMLP (configuración de
+la etapa 10) con 5 y DeepSets con 3; las mezclas usan sus pesos fijos (`n13_mezcla_final`
+0,80/0,15/0,05; LGB + RealMLP 0,85/0,15); A + KNN fuera de fold se corre con 5 semillas
+para que la comparación con la base aísle las variables KNN (también en la partición
+original, `n16_a_knn_bag5`, para tener su holdout). La métrica es la del pipeline: umbral
+elegido en la OOF completa de cada partición y F1 de la clase pobre por fold con ese
+umbral. El holdout es el de siempre: predicciones guardadas del pipeline con su umbral
+OOF original y bootstrap pareado de 2.000 réplicas (la misma remuestra de hogares para
+todos los candidatos). Comparaciones contra `n7_a_agregados_bag5` (`funciones/inferencia.py`):
+diferencia por fold (misma partición y fold) con IC t al 95 % (14 gl) y diferencia por
+réplica en el holdout con IC percentil; una mejora cuenta como real solo si el IC pareado
+excluye cero en la CV repetida **y** en el holdout. El efecto mínimo detectable (MDE) es
+(t₀,₉₇₅ + t₀,₈₀) × EE en CV y 2,80 × EE bootstrap en holdout (α = 0,05 bilateral,
+potencia 0,80).
+
+Corre desacoplado (`Start-Process`), con hasta dos subprocesos a la vez (8 hilos cada uno),
+vigilante de memoria que sale limpio si el sistema baja de 2 GB libres (código 3; el
+orquestador relanza ese trabajo solo, hasta 8 veces), guardado reanudable por fold y por
+ajuste auxiliar, estado en `etapa16/fase1/estado.json`, `fin.txt` al terminar y log propio
+en `stores/logs/etapa16_fase1.log`. `--prueba` corre la miniatura completa (una partición,
+20 iteraciones, 2 semillas, 50 réplicas) en `etapa16_prueba/` sin tocar nada. Tablas en
+`views/tablas/nivel7/etapa16_fase1_*.csv` (folds, pareadas, bootstrap, resumen y tiempos).
+
+**Resultados de la fase 1** (corrida del 22 al 23 de octubre de 2026: 6,2 horas de reloj,
+628 minutos de trabajo en 12 subprocesos, una sola salida limpia por memoria al arrancar las
+redes de la partición 2, relanzada en solitario). F1 CV repetida = media de las 15
+evaluaciones (error estándar entre paréntesis); Δ = candidato − `n7_a_agregados_bag5`, con
+el IC 95 % pareado naive (15 pares) y, en CV, el corregido por dependencia entre folds
+(Nadeau y Bengio, 2003; EE × √(1/15 + 1/4)).
+
+| Candidato | F1 CV repetida (EE) | F1 OOF original | F1 holdout [IC 95 %] | Δ CV [IC naive] | Δ CV IC corregido | Δ holdout [IC bootstrap] | MDE CV / corr. / holdout | Min |
+|---|---|---|---|---|---|---|---|---|
+| `n7_a_agregados_bag5` (base) | 0,7752 (0,0008) | 0,7748 | 0,7806 [0,7731; 0,7885] | | | | | 79 |
+| `n13_mezcla_final` | 0,7758 (0,0008) | 0,7753 | 0,7820 [0,7743; 0,7897] | +0,0006 [−0,0001; +0,0013] | [−0,0009; +0,0021] | +0,0014 [−0,0003; +0,0032] | 0,0010 / 0,0021 / 0,0025 | 292 |
+| mezcla LGB + RealMLP | 0,7754 (0,0008) | 0,7750 | 0,7815 [0,7739; 0,7892] | +0,0003 [−0,0003; +0,0008] | [−0,0010; +0,0015] | +0,0008 [−0,0007; +0,0025] | 0,0008 / 0,0017 / 0,0023 | 241 |
+| `n7_v3_fuentes_bag5` | 0,7749 (0,0007) | 0,7738 | 0,7792 [0,7715; 0,7872] | −0,0003 [−0,0008; +0,0002] | [−0,0014; +0,0008] | −0,0014 [−0,0038; +0,0011] | 0,0007 / 0,0015 / 0,0035 | 19 |
+| A + KNN (5 semillas) | 0,7741 (0,0007) | 0,7741 | 0,7796 [0,7718; 0,7874] | −0,0011 [−0,0021; −0,0001] | [−0,0034; +0,0011] | −0,0010 [−0,0035; +0,0015] | 0,0014 / 0,0031 / 0,0035 | 77 |
+| CatBoost B3 | 0,7722 (0,0007) | 0,7723 | 0,7786 [0,7707; 0,7864] | −0,0030 [−0,0042; −0,0018] | [−0,0056; −0,0004] | −0,0021 [−0,0054; +0,0011] | 0,0017 / 0,0037 / 0,0046 | 70 |
+| `n7_n6param_a4_total_bag5` | 0,7697 (0,0008) | 0,7692 | 0,7760 [0,7683; 0,7838] | −0,0055 [−0,0067; −0,0043] | [−0,0081; −0,0030] | −0,0046 [−0,0088; −0,0003] | 0,0016 / 0,0036 / 0,0060 | 18 |
+
+**Ninguna mejora es real** según la regla (IC pareado que excluya cero en CV repetida y en
+holdout). Lo que sí se sostiene:
+
+- La CV repetida reproduce la OOF original casi al milésimo (0,7752 frente a 0,7748 en la
+  base): la partición de R no era especialmente favorable, y el orden de los candidatos es el
+  mismo en las tres particiones nuevas.
+- `n13_mezcla_final` le gana a la base en 9 de los 15 folds (diferencias por fold entre
+  −0,0014 y +0,0034), por +0,0006 de media (IC naive [−0,0001; +0,0013]) y +0,0014 en
+  holdout (IC [−0,0003; +0,0032]): ambos rozan el cero sin excluirlo. Es, con todo, el único candidato que no pierde en ninguna de las
+  dos medidas, y sigue siendo el CSV recomendado.
+- El KNN fuera de fold deja de parecer prometedor con 5 semillas: −0,0011 en CV (IC naive
+  excluye cero por debajo) y −0,0010 en holdout; su holdout positivo de la etapa 12 era
+  ruido de 1 semilla. CatBoost B3 y la base sin agregados ni fuentes pierden con claridad.
+- **Efecto mínimo detectable**: con este diseño, una mejora tendría que ser de ~0,001 en CV
+  (0,002 con la corrección por dependencia) y de 0,0025 a 0,006 en holdout, según cuánto
+  difiera el candidato de la base, para detectarse con potencia 0,80. Todas las diferencias
+  observadas entre los mejores candidatos están por debajo del MDE del holdout: el holdout
+  de 32.993 hogares no distingue mejoras de un par de milésimas, y la CV repetida solo las
+  distingue si son sistemáticas en los 15 folds.
+
+Tablas en `views/tablas/nivel7/etapa16_fase1_*.csv`; la OOF de cada candidato en cada
+partición queda en `stores/procesados/nivel7/etapa16/particion_r<r>/predicciones/` para
+las fases siguientes.
 
 ## Decisiones de diseño
 

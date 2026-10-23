@@ -421,17 +421,22 @@ def tasas_vecinos(x_referencia, y_referencia, x_consulta):
     return np.column_stack([etiquetas[:, :k].mean(axis=1) for k in K_VECINOS])
 
 
-def variables_knn_contexto(contexto, columnas):
+def variables_knn_contexto(contexto, columnas, ruta_matrices=RUTA_MATRICES_A):
     """Variables KNN de un contexto: las filas de entrenamiento reciben la tasa de
     sus vecinos en los otros FOLDS_INTERNOS_KNN - 1 folds internos (nunca su
     propia etiqueta ni las de su fold interno) y las de evaluación la tasa
     calculada con todo el entrenamiento del contexto. Estandarización con las
     medias y desviaciones del entrenamiento.
+
+    Argumentos: contexto = nombre; columnas = variables de la distancia;
+        ruta_matrices = carpeta con <contexto>_ent.parquet (con pobre) y
+        <contexto>_eval.parquet (las de la etapa 10 por defecto; la etapa 16 pasa
+        las de cada partición repetida).
     """
     from sklearn.model_selection import StratifiedKFold
-    x_ent = pd.read_parquet(RUTA_MATRICES_A / f"{contexto}_ent.parquet", columns=columnas + ["pobre"])
+    x_ent = pd.read_parquet(ruta_matrices / f"{contexto}_ent.parquet", columns=list(columnas) + ["pobre"])
     y_ent = x_ent.pop("pobre").to_numpy().astype(int)
-    x_eval = pd.read_parquet(RUTA_MATRICES_A / f"{contexto}_eval.parquet", columns=columnas)
+    x_eval = pd.read_parquet(ruta_matrices / f"{contexto}_eval.parquet", columns=list(columnas))
     media, desvio = x_ent.mean(), x_ent.std().replace(0, 1)
     z_ent = ((x_ent - media) / desvio).to_numpy(np.float32)
     z_eval = ((x_eval - media) / desvio).to_numpy(np.float32)

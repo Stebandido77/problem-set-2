@@ -45,5 +45,22 @@ grafico_dependencia <- train |>
   )
 guardar_figura(grafico_dependencia, "pobreza_tasa_dependencia")
 
+grafico_desempleo <- train |>
+  mutate(tramo_desempleo = case_when(
+    tasa_desempleo_hogar == 0 ~ "0%",
+    tasa_desempleo_hogar > 0 & tasa_desempleo_hogar <= 0.5 ~ "1% - 50%",
+    tasa_desempleo_hogar > 0.5 ~ "> 50%"
+  )) |>
+  tasa_pobreza_por(tramo_desempleo, "Tasa de desempleo del hogar") |>
+  ggplot(aes(valor, tasa_pobreza)) +
+  geom_col(fill = "#e34a33") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    title = "Incidencia de la pobreza según el desempleo del hogar",
+    x = "Tasa de desempleo en el hogar", y = "Tasa de pobreza"
+  ) +
+  theme_minimal()
+guardar_figura(grafico_desempleo, "pobreza_desempleo_hogar")
+
 # ---- Resumen descriptivo -----------------------------------------------------
 skim(train)

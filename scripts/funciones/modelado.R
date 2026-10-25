@@ -115,9 +115,12 @@ correr_lpm <- function(receta, folds, datos_train, datos_test, especificacion) {
     base_eval <- bake(receta_estimada, new_data = evaluacion)
 
     modelo <- lm(pobre ~ ., data = select(base_train, -id))
+    preds <- predict(modelo, newdata = select(base_eval, -id))
+    preds <- if_else(is.na(preds), 0, preds)
+
     list(
       modelo = modelo,
-      probabilidad = pmin(pmax(predict(modelo, newdata = base_eval), 0), 1)
+      probabilidad = pmin(pmax(preds, 0), 1)
     )
   }
 

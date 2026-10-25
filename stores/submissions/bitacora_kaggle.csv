@@ -1,1 +1,7 @@
 fecha,archivo,algoritmo,especificacion,f1_cv,f1_publico
+2026-10-25,lpm_20261025_100003.csv,LPM,LPM | receta base | umbral óptimo F1,0.6171,NA
+2026-10-25,logit_20261025_100224.csv,Logit,Logit | receta base | umbral óptimo F1,0.6465,NA
+2026-10-25,elastic_net_20261025_101433.csv,Elastic Net,Elastic Net | receta base | grid 20x6 | umbral óptimo F1,0.6463,NA
+2026-10-25,lpm_20261025_114039.csv,LPM,LPM | receta base | umbral óptimo F1,0.6192,NA
+2026-10-25,logit_20261025_114332.csv,Logit,Logit | receta base | umbral óptimo F1,0.6465,NA
+2026-10-25,elastic_net_20261025_115644.csv,Elastic Net,Elastic Net | receta base | grid 20x6 | umbral óptimo F1,0.6464,NA

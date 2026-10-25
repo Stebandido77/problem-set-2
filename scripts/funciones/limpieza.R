@@ -44,14 +44,16 @@ limpiar_personas <- function(personas) {
   personas |>
     transmute(
       id,
-      mujer         = as.integer(P6020 == 2),
+      mujer         = as.integer(!is.na(P6020) & P6020 == 2),
       edad          = P6040,
-      jefe_hogar    = as.integer(P6050 == 1),
+      jefe_hogar    = as.integer(!is.na(P6050) & P6050 == 1),
       menor_edad    = as.integer(P6040 < 18),
       adulto_mayor  = as.integer(P6040 >= 65),
+      edad_trabajar  = as.integer(P6040 >= 15 & P6040 < 65),
       # P6210: nivel educativo (9 = no sabe); faltante -> 0
       nivel_educ    = if_else(is.na(P6210) | P6210 == 9, 0, P6210),
       ocupado       = as.integer(!is.na(Oc) & Oc == 1),
+      desocupado    = as.integer(!is.na(Des) & Des == 1),
       afiliado_salud = as.integer(!is.na(P6090) & P6090 == 1),
       cotiza_pension = as.integer(!is.na(P6920) & P6920 %in% c(1, 3))
     )
@@ -65,24 +67,27 @@ agregar_personas_a_hogar <- function(personas) {
     group_by(id) |>
     summarise(
       n_miembros         = n(),
-      n_menores          = sum(menor_edad),
-      n_adultos_mayores  = sum(adulto_mayor),
-      n_ocupados         = sum(ocupado),
+      n_menores          = sum(menor_edad, na.rm = TRUE),
+      n_adultos_mayores  = sum(adulto_mayor, na.rm = TRUE),
+      n_edad_trabajar    = sum(edad_trabajar, na.rm = TRUE),
+      n_ocupados         = sum(ocupado, na.rm = TRUE),
+      n_desocupados      = sum(desocupado, na.rm = TRUE),
       prop_ocupados      = n_ocupados / n_miembros,
-      prop_mujeres       = mean(mujer),
-      educ_maxima        = max(nivel_educ),
-      educ_promedio      = mean(nivel_educ),
-      prop_afiliados_salud = mean(afiliado_salud),
-      prop_cotiza_pension  = mean(cotiza_pension),
-      jefe_mujer         = max(mujer * jefe_hogar),
-      jefe_edad          = max(edad * jefe_hogar),
-      jefe_educ          = max(nivel_educ * jefe_hogar),
-      jefe_ocupado       = max(ocupado * jefe_hogar),
+      prop_mujeres       = mean(mujer, na.rm = TRUE),
+      educ_maxima        = max(nivel_educ, na.rm = TRUE),
+      educ_promedio      = mean(nivel_educ, na.rm = TRUE),
+      prop_afiliados_salud = mean(afiliado_salud, na.rm = TRUE),
+      prop_cotiza_pension  = mean(cotiza_pension, na.rm = TRUE),
+      jefe_mujer         = max(mujer * jefe_hogar, na.rm = TRUE),
+      jefe_edad          = max(edad * jefe_hogar, na.rm = TRUE),
+      jefe_educ          = max(nivel_educ * jefe_hogar, na.rm = TRUE),
+      jefe_ocupado       = max(ocupado * jefe_hogar, na.rm = TRUE),
       .groups = "drop"
     ) |>
     mutate(
-      n_edad_trabajar  = n_miembros - n_menores - n_adultos_mayores,
-      tasa_dependencia = (n_menores + n_adultos_mayores) / pmax(n_edad_trabajar, 1)
+      tasa_dependencia = (n_menores + n_adultos_mayores) / pmax(n_edad_trabajar, 1),
+      fuerza_laboral = n_ocupados + n_desocupados,
+      tasa_desempleo_hogar = if_else(fuerza_laboral > 0, n_desocupados / fuerza_laboral, 0)
     )
 }
 
@@ -107,7 +112,8 @@ limpiar_hogares <- function(hogares) {
     select(id, any_of(names(nombres))) |>
     mutate(
       across(any_of(c("dominio", "departamento", "tenencia")), as.factor),
-      personas_por_cuarto = personas_ug / pmax(dormitorios, 1)
+      personas_por_cuarto = personas_ug / pmax(dormitorios, 1),
+      hacinamiento_critico = as.integer(personas_por_cuarto > 3)
     )
 }
 

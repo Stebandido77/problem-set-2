@@ -1,0 +1,6 @@
+# Entorno aparte para la etapa 12 (AutoGluon fija sus propias versiones de torch,
+# numpy y pandas): py -3.12 -m venv python/.venv_autogluon &&
+# python/.venv_autogluon/Scripts/python.exe -m pip install -r python/requirements_autogluon.txt
+autogluon.tabular[all]==1.6.3
+pyarrow
+psutil

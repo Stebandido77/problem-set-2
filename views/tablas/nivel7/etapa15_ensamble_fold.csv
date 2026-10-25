@@ -1,0 +1,2 @@
+candidato,disponible,motivo
+n15_ensamble_fold,False,no hay predicciones de test por fold guardadas de n7_a_agregados_bag5: evaluar_modelo() predice en cv_k solo el fold de validación y los parciales se borran al terminar

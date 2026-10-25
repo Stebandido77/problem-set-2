@@ -1,0 +1,5 @@
+criterio,hogares_test,hogares_train,pares,pobreza_contrapartes_train,pobreza_promedio_por_hogar_test,hogares_test_con_contrapartes_discrepantes
+exacto,21,20,21.0,0.1,0.09523809523809523,0.0
+"casi exacto, sin los exactos",417,462,500.0,0.09740259740259741,0.09292565947242207,18.0
+"casi exacto, con los exactos",438,481,524.0,0.0997920997920998,0.09417808219178082,19.0
+referencia,66168,164960,,0.20019398642095054,,

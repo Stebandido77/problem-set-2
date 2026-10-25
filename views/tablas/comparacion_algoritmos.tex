@@ -1,0 +1,15 @@
+
+\begin{tabular}{llrrrrrrrrr}
+\toprule
+algoritmo & candidato & umbral & f1\_cv & f1\_cv\_sd & f1\_holdout & precision\_holdout & recall\_holdout & filtracion\_pct & subcobertura\_pct & f1\_kaggle\\
+\midrule
+Boosting & n4\_xgboost & 0.360 & 0.740 & 0.004 & 0.746 & 0.704 & 0.794 & 0.296 & 0.206 & NA\\
+Random Forest & n4\_random\_forest & 0.340 & 0.726 & 0.002 & 0.734 & 0.680 & 0.798 & 0.320 & 0.202 & NA\\
+Elastic Net & n4\_elastic\_net & 0.340 & 0.717 & 0.004 & 0.718 & 0.668 & 0.776 & 0.332 & 0.224 & NA\\
+Logit & n3\_logit & 0.350 & 0.717 & 0.004 & 0.718 & 0.673 & 0.768 & 0.327 & 0.232 & NA\\
+CART & n4\_cart & 0.348 & 0.697 & 0.004 & 0.701 & 0.657 & 0.752 & 0.343 & 0.248 & NA\\
+\addlinespace
+LPM & n3\_lpm & 0.378 & 0.690 & 0.004 & 0.691 & 0.651 & 0.737 & 0.349 & 0.263 & NA\\
+Naive Bayes & n4\_naive\_bayes & 0.000 & 0.643 & 0.004 & 0.640 & 0.560 & 0.748 & 0.440 & 0.252 & NA\\
+\bottomrule
+\end{tabular}

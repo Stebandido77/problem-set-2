@@ -1,0 +1,39 @@
+seccion,comprobacion,train,test
+estructura,hogares,164960,66168.0
+estructura,personas,543109,219644.0
+estructura,ids de hogar repetidos,0,0.0
+estructura,"llaves (id, Orden) repetidas",0,0.0
+estructura,personas sin hogar,0,0.0
+estructura,hogares sin personas,0,0.0
+estructura,conteo de personas distinto de Nper,0,0.0
+estructura,conteo de la unidad de gasto distinto de Npersug,0,0.0
+estructura,hogares sin jefe,0,0.0
+estructura,hogares con varios jefes,0,0.0
+estructura,"personas fuera de la unidad de gasto (P6050 6, 7, 8)",2111,889.0
+estructura,hogares con personas fuera de la unidad de gasto,1740,729.0
+estructura,geografía de la persona distinta de la del hogar,0,0.0
+estructura,hogares sin arriendo estimado ni pagado (>= 1.000 pesos),10425,3930.0
+estructura,ocupados sin horas (P6800),0,0.0
+estructura,P6210 faltante (tasa),0.041903190703891854,0.04174482344156909
+estructura,P6210s1 faltante (tasa),0.17574740982012818,0.1767268853235235
+estructura,P6920 faltante (tasa),0.545117094358591,0.5470625193494928
+estructura,tasa de pobreza,0.20019398642095054,
+estructura,Pobre distinto de (Ingpcug < Lp),0,
+estructura,Indigente distinto de (Ingpcug < Li),0,
+estructura,Ingpcug faltante,0,
+estructura,Ingpcug igual a cero,712,
+estructura,Ingpcug exactamente igual a Lp,0,
+estructura,Ingpcug distinto de Ingtotugarr / Npersug,0,
+estructura,suma de Ingtot de la unidad de gasto distinta de Ingtotug,0,
+estructura,Ingtotugarr mayor que Ingtotug (hogares con arriendo imputado),78295,
+estructura,Npobres distinto de Pobre x Nper,0,
+estructura,Npobres distinto de Pobre x Npersug,67,
+estructura,Nindigentes distinto de Indigente x Nper,0,
+estructura,columnas de hogares solo en train,"Indigente, Ingpcug, Ingtotug, Ingtotugarr, Nindigentes, Npobres, Pobre",
+estructura,columnas de personas solo en train (número),72,
+ids,longitud de los ids,24,24.0
+ids,ids hexadecimales,164960,66168.0
+ids,ids comunes a train y test,0,
+ids,cambios de dominio entre filas consecutivas,6055,62683.0
+poda,columnas descartadas como duplicadas,210,
+poda,descartadas que no eran duplicadas,2,

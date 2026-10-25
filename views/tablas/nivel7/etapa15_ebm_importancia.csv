@@ -1,0 +1,81 @@
+termino,importancia,tipo,orden
+ingreso_pred_total_v3,0.5666078307471595,variable,1
+arriendo_por_persona_lp,0.49589445590571507,variable,2
+ag_todos_P7500s2_1_prop,0.44707806173756615,variable,3
+tenencia_propia_pagada,0.43420952436130134,variable,4
+log_ingreso_pred_pc_lp_v3,0.40762632702484936,variable,5
+arriendo_por_persona_lp & tenencia_propia_pagada,0.3935496191147466,interacción,6
+log_ingreso_pred_pc_lp,0.37396354030829165,variable,7
+ag_todos_P6585s2_1_prop,0.2930578799129587,variable,8
+tenencia_arriendo,0.2834689324973953,variable,9
+log_ingreso_pred_pc_lp_v3 & ag_todos_P6610_2_prop,0.2604910471776864,interacción,10
+log_arriendo_relativo,0.2601496095507469,variable,11
+log_ingreso_pred_pc_lp_total,0.23604063558967806,variable,12
+laboral_pc_lp_v3,0.22655439774417774,variable,13
+tenencia_usufructo,0.22227418640768104,variable,14
+ag_todos_P6630s1_1_prop,0.22095714766667368,variable,15
+ingreso_pred_total_total,0.21660517413229993,variable,16
+log_arriendo_relativo & tenencia_usufructo,0.21648195127262057,interacción,17
+log_ingreso_pred_pc_v3,0.20935594511611572,variable,18
+n_perceptores_v3,0.20478159968857648,variable,19
+tenencia_propia_pagada & log_costo_vivienda_relativo,0.20356788576025345,interacción,20
+ag_todos_P6610_2_prop,0.17181386956532127,variable,21
+pensiones_pc_lp_v3,0.16042143282221402,variable,22
+log_ingreso_pred_pc_v3 & log_arriendo_relativo,0.1579101334765422,interacción,23
+log_costo_vivienda_relativo,0.15532564425995793,variable,24
+log_arriendo_relativo & tenencia_propia_pagada,0.15274121669476373,interacción,25
+log_ingreso_pred_pc_total,0.1487217440203992,variable,26
+ingreso_pred_max_lp_total,0.13730099846312327,variable,27
+log_ingreso_pred_pc_v3 & arriendo_por_persona_lp,0.1366603795612391,interacción,28
+log_ingreso_pred_pc,0.1275458665730489,variable,29
+log_costo_vivienda_relativo & laboral_pc_lp_v3,0.12233725308845375,interacción,30
+ingreso_pred_max_lp,0.11456122988142305,variable,31
+arriendos_pc_lp_v3,0.11274026232139495,variable,32
+ingreso_pred_total,0.11147307710446805,variable,33
+linea_pobreza,0.10185040960838675,variable,34
+ag_todos_P6040_suma,0.10035342444399635,variable,35
+log_ingreso_pred_pc_v3 & log_costo_vivienda_relativo,0.09806030471170381,interacción,36
+tenencia_propia_pagada & log_arriendo,0.09639785233431591,interacción,37
+log_arriendo_relativo & laboral_pc_lp_v3,0.09557799965130147,interacción,38
+log_ingreso_pred_pc_lp_v3 & log_costo_vivienda_relativo,0.09462965300702564,interacción,39
+tenencia_arriendo & log_arriendo_relativo,0.08907889452184982,interacción,40
+tenencia_arriendo & log_arriendo,0.07914130280148185,interacción,41
+otros_pc_lp_v3,0.07454104088173123,variable,42
+ingreso_pred_max_lp_v3,0.07404797858654451,variable,43
+ag_todos_P7090_2_prop,0.07346823561466233,variable,44
+horas_por_miembro,0.07232935453708232,variable,45
+log_costo_vivienda_relativo & tenencia_usufructo,0.06777359109061203,interacción,46
+transferencias_pc_lp_v3,0.06634477464507374,variable,47
+n_menores,0.0655654403107545,variable,48
+horas_por_persona_ug,0.06420629039665578,variable,49
+cuartos_por_persona,0.06252214228493673,variable,50
+edad_promedio,0.06134782247769032,variable,51
+log_arriendo,0.061032815992714845,variable,52
+educ_promedio_adultos,0.058448267941975475,variable,53
+arriendo_por_persona_lp & tenencia_arriendo,0.05422894958969772,interacción,54
+tenencia_arriendo & log_costo_vivienda_relativo,0.053594233034027924,interacción,55
+arriendo_por_persona_lp & laboral_pc_lp_v3,0.05325569981922555,interacción,56
+log_ingreso_pred_pc_lp_v3 & arriendo_por_persona_lp,0.053171767697960906,interacción,57
+ag_todos_P7510s1_1_prop,0.05179657944127228,variable,58
+log_ingreso_pred_pc_lp_v3 & log_arriendo_relativo,0.05160155902305075,interacción,59
+ag_resto_P6040_suma,0.04703247241832255,variable,60
+tenencia_posesion_sin_titulo,0.04353319463049938,variable,61
+prop_contributivo,0.0433513305541023,variable,62
+ag_todos_P6585s2_1_conteo,0.03744221327457832,variable,63
+horas_por_pet,0.037082405272854474,variable,64
+personas_por_cuarto,0.03498937546224079,variable,65
+ag_resto_P6040_media,0.030172258627514156,variable,66
+ag_todos_P6040_max,0.02638776747331683,variable,67
+ag_todos_P6800_media,0.023945147338629527,variable,68
+ag_resto_P6040_desv,0.021226595078441046,variable,69
+ag_todos_P6210s1_suma,0.021147073054128388,variable,70
+ag_todos_P6040_desv,0.01989980944431937,variable,71
+ag_todos_P6210s1_desv,0.018666159962624253,variable,72
+ag_todos_P6426_suma,0.016889927919581414,variable,73
+jefe_edad,0.015998428901914944,variable,74
+ag_todos_P6426_min,0.01527363148539959,variable,75
+perceptor_edad,0.012350208051879025,variable,76
+meses_empleo_promedio,0.012170801034947274,variable,77
+ag_todos_P6210s1_media,0.006914197934889274,variable,78
+perceptor_meses_empleo,0.005000161814834896,variable,79
+meses_empleo_jefe,0.0009864088425908114,variable,80

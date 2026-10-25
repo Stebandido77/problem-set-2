@@ -1,0 +1,5 @@
+base,hogares,tasa_pobreza
+entrenamiento (CV),131967,0.2001939878909121
+holdout,32993,0.20019398054132695
+reajuste final,164960,0.20019398642095054
+test,66168,NA

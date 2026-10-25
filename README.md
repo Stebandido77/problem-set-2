@@ -13,7 +13,7 @@ uno que prediga bien **y** que se pueda aplicar con una encuesta corta y barata.
 | Nombre | GitHub |
 |---|---|
 | Esteban | [@Stebandido77](https://github.com/Stebandido77) |
-| _Por completar_ | |
+| Neislen | [@NeislenG](https://github.com/NeislenG) |
 | _Por completar_ | |
 
 ## Estructura del repositorio

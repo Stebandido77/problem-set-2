@@ -1,0 +1,39 @@
+%% Preamble: packages and theme. Keep design changes in beamerthemeUniandes.sty
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-nodecimaldot,es-noshorthands]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage[round]{natbib}
+\usetheme{Uniandes}
+
+%% ---- Agregados para el Problem Set 2 (no cambian el diseño) ----
+% Algunas instalaciones de MiKTeX no registran el mapa de Source Sans; se carga aquí.
+\pdfmapfile{+SourceSansThree.map}
+\usepackage{array}
+\usepackage{xspace}
+\usetikzlibrary{positioning,arrows.meta,decorations.pathreplacing}
+\graphicspath{{../figuras/}{../../../views/figuras/}{../../../views/figuras/nivel7/}}
+
+% Notas del presentador: el PDF de entrega no las muestra; la versión *_notas
+% se compila con \def\connotas{} antes del documento y las intercala.
+\ifdefined\connotas
+  \setbeameroption{show notes}
+\else
+  \setbeameroption{hide notes}
+\fi
+\setbeamerfont{note page}{size=\small}
+\setbeamertemplate{note page}{%
+  \vspace{0.3cm}\insertslideintonotes{0.25}\par\vspace{0.2cm}
+  \begin{minipage}{0.95\textwidth}\insertnote\end{minipage}}
+
+% F1 público de Kaggle del mejor modelo: pendiente hasta subir el CSV final.
+\newcommand{\kagglepublico}{\textcolor{andesred}{[pendiente]}\xspace}
+
+% Tabla pequeña con letra reducida
+\newcommand{\tablachica}{\footnotesize\renewcommand{\arraystretch}{1.12}}
+% Fuente de una figura o tabla, al pie
+\newcommand{\fuente}[1]{\par\vspace{2pt}{\tiny\color{andesgray}#1\par}}
+% Títulos sin cortar palabras con guion
+\addtobeamertemplate{frametitle}{\hyphenpenalty=10000\exhyphenpenalty=10000\raggedright}{}

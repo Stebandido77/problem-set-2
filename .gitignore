@@ -71,5 +71,9 @@ limpio/salidas/
 limpio/salidas_prueba/
 limpio/resultados_prueba/
 
+# ---- Slides: los PDF de entrega viven en document/slides/; en ps2/ solo las fuentes y las versiones con notas ----
+document/slides/ps2/best_equipo_06.pdf
+document/slides/ps2/compare_equipo_06.pdf
+
 # ---- Entorno aparte de AutoGluon (etapa 12) ----
 python/.venv_autogluon/

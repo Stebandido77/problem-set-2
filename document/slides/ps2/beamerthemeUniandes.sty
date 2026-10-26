@@ -1,0 +1,194 @@
+%% ============================================================
+%%  beamerthemeUniandes.sty
+%%  Tema Beamer con la paleta de la Universidad de los Andes.
+%%  Inspirado en "Oxford Statistics Presentation" (C. Carmona, CC BY 4.0).
+%%  Uso:  \usetheme{Uniandes}
+%% ============================================================
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{beamerthemeUniandes}[2026/10/06 Uniandes Beamer theme]
+
+\mode<presentation>
+
+% ---------- Packages ----------
+\RequirePackage{tikz}
+\RequirePackage{xcolor}
+\RequirePackage{booktabs}
+\usetikzlibrary{calc}
+
+% Font: Source Sans Pro if available (Overleaf has it), Helvetica otherwise
+\IfFileExists{sourcesanspro.sty}{%
+  \RequirePackage[default]{sourcesanspro}%
+}{%
+  \RequirePackage[scaled=0.92]{helvet}%
+}
+\renewcommand{\familydefault}{\sfdefault}
+
+% ---------- Palette (edit here to retune the whole deck) ----------
+\definecolor{andesyellow}{HTML}{FFD100}   % amarillo institucional (Pantone 109 C aprox.)
+\definecolor{andesblack}{HTML}{1A1A1A}    % negro
+\definecolor{andesgray}{HTML}{4D4D4D}     % gris oscuro (texto secundario)
+\definecolor{andeslight}{HTML}{F2F2F2}    % gris claro (fondos de bloque)
+\definecolor{andesmid}{HTML}{B3B3B3}      % gris medio (líneas)
+\definecolor{andesaccent}{HTML}{C79A00}   % amarillo oscuro: texto/enlaces sobre blanco (legible)
+\definecolor{andesred}{HTML}{B3261E}      % alertas
+
+% ---------- Beamer colors ----------
+\setbeamercolor{normal text}{fg=andesblack,bg=white}
+\setbeamercolor{structure}{fg=andesblack}
+\setbeamercolor{alerted text}{fg=andesred}
+\setbeamercolor{example text}{fg=andesaccent}
+\setbeamercolor{frametitle}{fg=andesblack}
+\setbeamercolor{framesubtitle}{fg=andesgray}
+\setbeamercolor{title}{fg=andesblack}
+\setbeamercolor{subtitle}{fg=andesgray}
+\setbeamercolor{author}{fg=andesblack}
+\setbeamercolor{institute}{fg=andesgray}
+\setbeamercolor{date}{fg=andesgray}
+\setbeamercolor{footline}{fg=andesgray}
+\setbeamercolor{item projected}{fg=andesblack,bg=andesyellow}
+\setbeamercolor{itemize item}{fg=andesyellow!85!black}
+\setbeamercolor{itemize subitem}{fg=andesgray}
+\setbeamercolor{enumerate item}{fg=andesblack}
+\setbeamercolor{section in toc}{fg=andesblack}
+\setbeamercolor{subsection in toc}{fg=andesgray}
+\setbeamercolor{caption name}{fg=andesaccent}
+\setbeamercolor{bibliography entry author}{fg=andesblack}
+\setbeamercolor{bibliography entry note}{fg=andesgray}
+% Blocks
+\setbeamercolor{block title}{fg=andesblack,bg=andesyellow}
+\setbeamercolor{block body}{fg=andesblack,bg=andeslight}
+\setbeamercolor{block title example}{fg=white,bg=andesblack}
+\setbeamercolor{block body example}{fg=andesblack,bg=andeslight}
+\setbeamercolor{block title alerted}{fg=white,bg=andesred}
+\setbeamercolor{block body alerted}{fg=andesblack,bg=andesred!8}
+
+% ---------- Fonts ----------
+\setbeamerfont{title}{size=\huge,series=\bfseries}
+\setbeamerfont{subtitle}{size=\large}
+\setbeamerfont{author}{size=\normalsize}
+\setbeamerfont{institute}{size=\small}
+\setbeamerfont{date}{size=\small}
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+\setbeamerfont{framesubtitle}{size=\small}
+\setbeamerfont{block title}{series=\bfseries}
+\setbeamerfont{footline}{size=\tiny}
+\setbeamerfont{caption}{size=\scriptsize}
+
+% ---------- Inner elements ----------
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize items}[square]
+\setbeamertemplate{enumerate items}[square]
+\setbeamertemplate{sections/subsections in toc}[square]
+\setbeamertemplate{blocks}[rounded][shadow=false]
+\setbeamertemplate{caption}[numbered]
+\setbeamertemplate{bibliography item}{\color{andesyellow!85!black}\rule{4pt}{4pt}}
+
+% ---------- Logo ----------
+% Full-color logo for white backgrounds: figuras/logo-uniandes.png
+% Without the file, a text placeholder is shown.
+\newcommand{\andeslogo}[1][1.2cm]{%
+  \IfFileExists{figuras/logo-uniandes.pdf}{\includegraphics[height=#1]{figuras/logo-uniandes.pdf}}{%
+  \IfFileExists{figuras/logo-uniandes.png}{\includegraphics[height=#1]{figuras/logo-uniandes.png}}{%
+    {\color{andesblack}\sffamily\bfseries\scriptsize
+     \begin{tabular}{@{}l@{}}Universidad de\\ los Andes\end{tabular}}}}}
+
+% ---------- Frame title: white, black title, logo right, yellow rule ----------
+\setbeamertemplate{frametitle}{%
+  \vspace*{0.35cm}%
+  \begin{minipage}[b]{\dimexpr\textwidth-2.6cm\relax}
+    {\usebeamerfont{frametitle}\usebeamercolor[fg]{frametitle}\insertframetitle\par}%
+    \ifx\insertframesubtitle\@empty\else
+      \vspace{1pt}{\usebeamerfont{framesubtitle}\usebeamercolor[fg]{framesubtitle}\insertframesubtitle\par}%
+    \fi
+  \end{minipage}\hfill
+  \begin{minipage}[b]{2.4cm}\raggedleft\raisebox{-2pt}{\andeslogo[0.6cm]}\end{minipage}\par
+  \vspace{0.12cm}%
+  \noindent\makebox[0pt][l]{{\color{andesyellow}\rule{1.6cm}{2.5pt}}{\color{andesmid}\rule{\dimexpr\textwidth-1.6cm\relax}{0.6pt}}}\par
+  \vspace{0.1cm}
+}
+
+% ---------- Footline: thin gray rule, author | title | page ----------
+\setbeamertemplate{footline}{%
+  \hbox to \paperwidth{\hskip0.45cm{\color{andesmid}\rule{\dimexpr\paperwidth-0.9cm\relax}{0.4pt}}\hfil}%
+  \vskip2pt
+  \hbox to \paperwidth{%
+    \hskip0.45cm\usebeamerfont{footline}\color{andesgray}%
+    \makebox[0.3\paperwidth][l]{\insertshortauthor}%
+    \hfill\insertshorttitle\hfill
+    \makebox[0.3\paperwidth][r]{\insertshortdate\quad{\color{andesblack}\bfseries\insertframenumber}\,/\,\inserttotalframenumber}%
+    \hskip0.45cm}%
+  \vskip6pt
+}
+
+% ---------- Title page: white, logo top-left, yellow strip at bottom ----------
+\setbeamertemplate{title page}{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \node[anchor=north west,inner sep=0] at ([xshift=1cm,yshift=-0.8cm]current page.north west) {\andeslogo[1.3cm]};
+    \fill[andesyellow] (current page.south west) rectangle ([yshift=0.32cm]current page.south east);
+    \node[anchor=north west,inner sep=0,text width=0.78\paperwidth,align=left]
+      at ([xshift=1cm,yshift=-2.55cm]current page.north west) {%
+      {\usebeamerfont{title}\usebeamercolor[fg]{title}\raggedright\hyphenpenalty=10000\exhyphenpenalty=10000\inserttitle\par}
+      \ifx\insertsubtitle\@empty\else
+        \vspace{0.2cm}{\usebeamerfont{subtitle}\usebeamercolor[fg]{subtitle}\insertsubtitle\par}
+      \fi
+      \vspace{0.35cm}{\color{andesyellow}\rule{2.2cm}{3pt}}\par
+      \vspace{0.35cm}
+      {\usebeamerfont{author}\usebeamercolor[fg]{author}\insertauthor\par}
+      \vspace{0.1cm}
+      {\usebeamerfont{institute}\usebeamercolor[fg]{institute}\insertinstitute\par}
+      \vspace{0.3cm}
+      {\usebeamerfont{date}\usebeamercolor[fg]{date}\insertdate\par}};
+  \end{tikzpicture}%
+}
+
+% ---------- Section divider (auto at each \section) ----------
+\newif\ifandessectionslides
+\andessectionslidestrue
+\AtBeginSection[]{%
+  \ifandessectionslides
+  {\setbeamertemplate{footline}{}
+   \begin{frame}[plain,noframenumbering]
+     \begin{tikzpicture}[remember picture,overlay]
+       \fill[andesyellow] (current page.south west) rectangle ([xshift=0.28\paperwidth]current page.north west);
+       \node[text=andesblack,font=\fontsize{72}{72}\selectfont\bfseries]
+         at ([xshift=0.14\paperwidth]current page.west) {\thesection};
+       \node[anchor=west,text width=0.6\paperwidth,text=andesblack,font=\huge\bfseries,align=left]
+         at ([xshift=0.33\paperwidth,yshift=0.2cm]current page.west) {\insertsectionhead};
+       \fill[andesyellow] ([xshift=0.33\paperwidth,yshift=-0.75cm]current page.west) rectangle ++(1.6cm,-0.09cm);
+       \node[anchor=south east,inner sep=0] at ([xshift=-0.6cm,yshift=0.5cm]current page.south east) {\andeslogo[0.6cm]};
+     \end{tikzpicture}
+   \end{frame}}
+  \fi
+}
+
+% ---------- Helpers ----------
+% \keyfig{number}{label}: big highlighted metric
+\newcommand{\keyfig}[2]{%
+  \begin{tabular}{@{}c@{}}
+    {\fontsize{26}{28}\selectfont\bfseries\color{andesblack}#1}\\[-2pt]
+    {\color{andesyellow}\rule{1.4cm}{2pt}}\\[1pt]
+    {\scriptsize\color{andesgray}#2}
+  \end{tabular}}
+% \takeaway{text}: yellow-bar callout for the slide's main message
+\newcommand{\takeaway}[1]{%
+  \par\vspace{0.2cm}\noindent
+  {\color{andesyellow}\vrule width 3pt}\hspace{0.25cm}%
+  \begin{minipage}{0.92\linewidth}\small\bfseries #1\end{minipage}\par}
+% \hl{text}: inline yellow highlight
+\newcommand{\hl}[1]{\colorbox{andesyellow}{\strut #1}}
+
+% Closing slide
+\newcommand{\andesclosing}[2]{%
+  {\setbeamertemplate{footline}{}
+   \begin{frame}[plain,noframenumbering]
+     \begin{tikzpicture}[remember picture,overlay]
+       \fill[andesyellow] (current page.south west) rectangle ([yshift=0.32cm]current page.south east);
+       \node[text=andesblack,font=\Huge\bfseries] at ([yshift=0.9cm]current page.center) {#1};
+       \fill[andesyellow] ([xshift=-1cm,yshift=0.25cm]current page.center) rectangle ++(2cm,-0.09cm);
+       \node[text=andesgray,font=\normalsize] at ([yshift=-0.3cm]current page.center) {#2};
+       \node[anchor=south,inner sep=0] at ([yshift=1cm]current page.south) {\andeslogo[1.1cm]};
+     \end{tikzpicture}
+   \end{frame}}}
+
+\mode<all>
+\endinput

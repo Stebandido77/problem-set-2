@@ -13,7 +13,7 @@ uno que prediga bien **y** que se pueda aplicar con una encuesta corta y barata.
 | Nombre | GitHub |
 |---|---|
 | Esteban | [@Stebandido77](https://github.com/Stebandido77) |
-| _Por completar_ | |
+| Neislen | [@NeislenG](https://github.com/NeislenG) |
 | _Por completar_ | |
 
 ## Estructura del repositorio
@@ -32,6 +32,7 @@ uno que prediga bien **y** que se pueda aplicar con una encuesta corta y barata.
 │   ├── 05_nivel_4_algoritmos.R       # Elastic Net, CART, Naive Bayes, XGBoost, RF
 │   ├── 06_nivel_5_balanceo.R         # SMOTE, submuestreo y pesos sobre el mejor
 │   ├── 07_nivel_6_complejo.R         # LightGBM, stacking y modelo de encuesta corta
+│   ├── 07b_modelos_complementarios.R # Cinco candidatos económicos con variables complementarias
 │   ├── 08_leaderboard.R              # Leaderboard interno, escalera, top 3, bitácora
 │   ├── 09_comparacion.R              # Deck compare: algoritmos en cancha nivelada
 │   ├── 10_mejor_modelo.R             # Deck best: importancia, trade-off de política
@@ -120,6 +121,7 @@ F1 público a mano. El mejor modelo se elige siempre por F1 en holdout, nunca po
 | 2. Base | tamaño del hogar, educación, ocupación y posición del jefe | Logit, LPM |
 | 3. Base + variables | + ~45 variables construidas desde personas, vivienda y ubicación | Logit, LPM |
 | 4. Algoritmos | las del nivel 3 | Elastic Net, CART, Naive Bayes, XGBoost, Random Forest |
+| 4+. Variables complementarias | nivel 3 + 8 conteos/tasas laborales y hacinamiento ya derivados | Logit, Elastic Net, CART, Random Forest (150 árboles) y XGBoost (hasta 600 árboles) con búsqueda económica |
 | 5. Desbalance | las del nivel 3 | el mejor del nivel 4 con SMOTE, submuestreo y pesos de clase |
 | 6. Complejo | las del nivel 3 | LightGBM (búsqueda amplia) y stacking |
 | E. Encuesta corta | 10 variables baratas | el mejor del nivel 4 y un Logit |
@@ -131,6 +133,11 @@ F1 público a mano. El mejor modelo se elige siempre por F1 en holdout, nunca po
 3. Umbral elegido con predicciones fuera de fold y aplicado fijo al holdout.
 4. Ranking final por F1 en holdout; se marca sobreajuste si F1 CV − F1 holdout > 0,02.
 5. Cada candidato se reajusta sobre el 100% del train antes de predecir el test.
+
+El nivel 4+ compara cinco candidatos sobre el mismo bloque de variables. Sus grillas se
+reducen para controlar costo (Elastic Net: 12 combinaciones; CART: 4; Random Forest:
+4 configuraciones y 150 árboles; XGBoost: 4 configuraciones). Cada submission se evalúa
+con el mismo holdout y umbral OOF; el top 3 manual no cambia automáticamente.
 
 ## Nivel 7 (Python): variables v2 y auxiliares de ingreso
 

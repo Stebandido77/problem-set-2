@@ -79,6 +79,7 @@ RUTA_LOGS        <- here("stores", "logs")
 # En modo rápido todo lo que produce la escalera va a stores/rapido/ para no
 # mezclarse con (ni reutilizarse en) la corrida completa.
 if (MODO_RAPIDO) {
+  RUTA_PROCESADOS  <- here("stores", "rapido", "procesados")
   RUTA_RESULTADOS  <- here("stores", "rapido", "resultados")
   RUTA_MODELOS     <- here("stores", "rapido", "modelos")
   RUTA_SUBMISSIONS <- here("stores", "rapido", "submissions")

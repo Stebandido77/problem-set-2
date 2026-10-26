@@ -1,8 +1,8 @@
 # ==============================================================================
 # 09_comparacion.R
-# Deck compare: los algoritmos en cancha nivelada (misma base del nivel 3, misma
-# receta). Combina las métricas del holdout interno con el F1 público que se
-# anota a mano en la bitácora (f1_kaggle).
+# Deck compare: mejor candidato por algoritmo entre los niveles 3, 4 y 4+.
+# El nivel 4+ agrega variables laborales y de hacinamiento. Combina métricas del
+# holdout con el F1 público anotado en la bitácora (f1_kaggle).
 # ==============================================================================
 
 source(here::here("scripts", "00_configuracion.R"))
@@ -12,15 +12,15 @@ leaderboard <- read_csv(file.path(RUTA_RESULTADOS, "leaderboard_interno.csv"),
 bitacora <- read_csv(file.path(RUTA_SUBMISSIONS, "bitacora_kaggle.csv"),
                      show_col_types = FALSE, col_types = cols(nivel = col_character()))
 
-# Cancha nivelada: niveles 3 y 4 comparten variables y preprocesamiento
+# Niveles 3 y 4 comparten variables; 4+ evalúa el bloque complementario.
 tabla_comparacion <- leaderboard |>
-  filter(nivel %in% c("3", "4")) |>
+  filter(nivel %in% c("3", "4", "4+")) |>
   left_join(select(bitacora, candidato, f1_kaggle), by = "candidato") |>
   group_by(algoritmo) |>
   slice_max(f1_holdout, n = 1, with_ties = FALSE) |>
   ungroup() |>
   arrange(desc(f1_holdout)) |>
-  select(algoritmo, candidato, umbral, f1_cv, f1_cv_sd, f1_holdout, precision_holdout,
+  select(nivel, algoritmo, candidato, umbral, f1_cv, f1_cv_sd, f1_holdout, precision_holdout,
          recall_holdout, filtracion_pct, subcobertura_pct, f1_kaggle)
 guardar_tabla(tabla_comparacion, "comparacion_algoritmos")
 
@@ -36,8 +36,8 @@ grafico_comparacion <- tabla_comparacion |>
   scale_color_manual(values = c(F1 = "#2a78d6", Precisión = "#eb6834", Recall = "#1baf7a")) +
   scale_x_continuous(limits = c(0, 1)) +
   labs(
-    title = "Desempeño fuera de muestra por algoritmo, con las mismas variables",
-    subtitle = "Holdout del 20%; umbral elegido con predicciones fuera de fold para maximizar F1",
+    title = "Mejor desempeño por algoritmo y conjunto de variables",
+    subtitle = "Holdout del 20%; el nivel 4+ agrega variables laborales y de hacinamiento",
     x = "Valor de la métrica", y = NULL, color = "Métrica"
   )
 guardar_figura(grafico_comparacion, "comparacion_algoritmos")

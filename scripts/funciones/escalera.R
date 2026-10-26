@@ -10,6 +10,7 @@ ETIQUETAS_NIVELES <- c(
   "2" = "2. Base",
   "3" = "3. Base + variables",
   "4" = "4. Algoritmos",
+  "4+" = "4+. Variables complementarias",
   "5" = "5. Desbalance",
   "6" = "6. Complejo",
   "E" = "E. Encuesta corta"
@@ -49,13 +50,14 @@ configurar_paralelismo <- function(id_algoritmo) {
 # Argumentos:
 #   id_algoritmo = "lpm" o un nombre válido de especificar_algoritmo()
 #   nombre       = identificador único del candidato (nombre del .rds y del CSV)
-#   nivel        = "1" a "6" o "E"
+#   nivel        = "1" a "6", "4+" o "E"
 #   variables    = predictores del nivel (ver definir_niveles())
 #   particion, folds = salidas de cargar_particion()
 #   balanceo     = "ninguno", "smote", "submuestreo" o "pesos"
 # Devuelve: salida de evaluar_candidato().
 correr_candidato_escalera <- function(id_algoritmo, nombre, nivel, variables,
-                                      particion, folds, balanceo = "ninguno") {
+                                      particion, folds, balanceo = "ninguno",
+                                      economico = FALSE) {
   # Si el candidato ya está en caché no hace falta levantar workers
   if (!file.exists(file.path(RUTA_MODELOS, paste0(nombre, ".rds")))) {
     configurar_paralelismo(id_algoritmo)
@@ -79,7 +81,9 @@ correr_candidato_escalera <- function(id_algoritmo, nombre, nivel, variables,
   }
 
   razon_pesos <- if (balanceo == "pesos") calcular_razon_pesos(particion$entrenamiento)
-  especificacion_modelo <- especificar_algoritmo(id_algoritmo, razon_pesos = razon_pesos)
+  especificacion_modelo <- especificar_algoritmo(
+    id_algoritmo, razon_pesos = razon_pesos, economico = economico
+  )
 
   # Pesos por fila: la columna va en el 80% (y sus folds) y en el holdout, que
   # se suma al 80% en el reajuste final. Nunca cambia qué filas hay en cada parte.

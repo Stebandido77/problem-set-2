@@ -77,6 +77,7 @@ limpiar_personas <- function(personas) {
       menor_5        = as.integer(P6040 < 5),
       menor_edad     = as.integer(P6040 < 18),
       adulto_mayor   = as.integer(P6040 >= 65),
+    edad_trabajar  = as.integer(P6040 >= 15 & P6040 < 65),
       adulto         = as.integer(P6040 >= 18),
       # P6210: nivel educativo (9 = no sabe); faltante -> 0
       nivel_educ     = if_else(is.na(P6210) | P6210 == 9, 0, P6210),
@@ -133,19 +134,21 @@ agregar_personas_a_hogar <- function(personas) {
     group_by(id) |>
     summarise(
       n_miembros         = n(),
-      n_menores          = sum(menor_edad),
-      n_menores_5        = sum(menor_5),
-      n_adultos_mayores  = sum(adulto_mayor),
-      n_ocupados         = sum(ocupado),
-      n_desocupados      = sum(desocupado),
-      prop_mujeres       = mean(mujer),
-      educ_maxima        = max(nivel_educ),
-      educ_promedio      = mean(nivel_educ),
+      n_menores          = sum(menor_edad, na.rm = TRUE),
+      n_menores_5        = sum(menor_5, na.rm = TRUE),
+      n_adultos_mayores  = sum(adulto_mayor, na.rm = TRUE),
+      n_edad_trabajar    = sum(edad_trabajar, na.rm = TRUE),
+      n_ocupados         = sum(ocupado, na.rm = TRUE),
+      n_desocupados      = sum(desocupado, na.rm = TRUE),
+      prop_ocupados      = n_ocupados / n_miembros,
+      prop_mujeres       = mean(mujer, na.rm = TRUE),
+      educ_maxima        = max(nivel_educ, na.rm = TRUE),
+      educ_promedio      = mean(nivel_educ, na.rm = TRUE),
       educ_maxima_adultos   = suppressWarnings(max(anos_educ_adulto, na.rm = TRUE)),
       educ_promedio_adultos = mean(anos_educ_adulto, na.rm = TRUE),
-      prop_afiliados_salud = mean(afiliado_salud),
-      prop_subsidiado      = mean(regimen_subsidiado),
-      prop_cotiza_pension  = mean(cotiza_pension),
+      prop_afiliados_salud = mean(afiliado_salud, na.rm = TRUE),
+      prop_subsidiado      = mean(regimen_subsidiado, na.rm = TRUE),
+      prop_cotiza_pension  = mean(cotiza_pension, na.rm = TRUE),
       n_informales       = sum(informal),
       n_cuenta_propia    = sum(cuenta_propia),
       n_empresa_pequena  = sum(empresa_pequena),
@@ -181,9 +184,10 @@ agregar_personas_a_hogar <- function(personas) {
   hogares |>
     left_join(jefes, by = "id") |>
     mutate(
-      prop_ocupados    = n_ocupados / n_miembros,
-      n_edad_trabajar  = n_miembros - n_menores - n_adultos_mayores,
       tasa_dependencia = (n_menores + n_adultos_mayores) / pmax(n_edad_trabajar, 1),
+      fuerza_laboral = n_ocupados + n_desocupados,
+    tasa_desempleo_hogar = if_else(fuerza_laboral > 0, n_desocupados / fuerza_laboral, 0),
+      prop_ocupados    = n_ocupados / n_miembros,
       # Proporciones sobre ocupados (0 si nadie trabaja)
       prop_informales      = if_else(n_ocupados > 0, n_informales / n_ocupados, 0),
       prop_cuenta_propia   = if_else(n_ocupados > 0, n_cuenta_propia / n_ocupados, 0),
@@ -235,7 +239,8 @@ limpiar_hogares <- function(hogares) {
       tenencia = factor(tenencia, levels = 1:6, labels = etiquetas_tenencia),
       across(c(dominio, departamento), as.factor),
       personas_por_cuarto     = n_personas / pmax(cuartos, 1),
-      personas_por_dormitorio = n_personas / pmax(dormitorios, 1)
+      personas_por_dormitorio = n_personas / pmax(dormitorios, 1),
+      hacinamiento_critico = as.integer(personas_por_cuarto > 3)
     ) |>
     select(-arriendo_estimado, -arriendo_pagado)
 }
@@ -288,12 +293,18 @@ definir_niveles <- function() {
     "log_arriendo", "log_arriendo_relativo", "personas_por_cuarto",
     "personas_por_dormitorio", "linea_pobreza"
   )
+  complementarias <- c(
+    "tasa_desempleo_hogar", "hacinamiento_critico", "fuerza_laboral",
+    "n_edad_trabajar", "n_informales", "n_cuenta_propia",
+    "n_empresa_pequena", "horas_trabajo_hogar"
+  )
 
   list(
     # Nivel 1: candidatas para la regla de una sola variable
     nivel_1 = c("personas_por_cuarto", "educ_maxima_adultos", "prop_ocupados"),
     nivel_2 = nivel_2,
     nivel_3 = c(nivel_2, desde_personas, desde_hogar),
+    nivel_4v = c(nivel_2, desde_personas, desde_hogar, complementarias),
     # Nivel E: encuesta corta, 10 preguntas baratas y verificables en campo
     nivel_e = c(
       "n_personas", "dormitorios", "tenencia", "log_arriendo", "dominio",

@@ -17,6 +17,7 @@ scripts <- c(
   "05_nivel_4_algoritmos.R",
   "06_nivel_5_balanceo.R",
   "07_nivel_6_complejo.R",
+  "07b_modelos_complementarios.R",
   "08_leaderboard.R",
   "09_comparacion.R",
   "10_mejor_modelo.R",

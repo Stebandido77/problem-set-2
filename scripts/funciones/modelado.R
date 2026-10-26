@@ -184,14 +184,19 @@ tamano_grilla <- function(completo, rapido) {
 #   razon_pesos = si no es NULL, peso relativo de la clase pobre (n_no_pobre / n_pobre)
 # Devuelve: lista con algoritmo (nombre del curso), modelo, grilla, descripcion
 #   de la búsqueda y parallel_over.
-especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
+especificar_algoritmo <- function(nombre, razon_pesos = NULL, economico = FALSE) {
   set.seed(SEMILLA)
+
+  tamano <- function(completo, rapido, economico) {
+    tamano_grilla(if (perfil_economico) economico else completo, rapido)
+  }
+  perfil_economico <- economico
 
   # parsnip guarda los argumentos como expresiones que se evalúan dentro de los
   # workers en paralelo, donde no existen las funciones ni las constantes del
   # proyecto: se calculan aquí y se inyectan con !!
   semilla <- SEMILLA
-  n_arboles_rf <- tamano_grilla(500, 100)
+  n_arboles_rf <- tamano(500, 100, 150)
   # Los motores con hilos corren los folds en secuencia y usan todos los núcleos
   hilos <- N_NUCLEOS
 
@@ -227,9 +232,10 @@ especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
       grilla = grid_regular(
         penalty(range = c(-5, 0)),
         mixture(range = c(0, 1)),
-        levels = c(penalty = tamano_grilla(20, 4), mixture = tamano_grilla(6, 2))
+        levels = c(penalty = tamano(20, 4, 4), mixture = tamano(6, 2, 3))
       ),
-      busqueda = "grilla regular: penalty 10^[-5, 0] x mixture [0, 1]"
+      busqueda = if (perfil_economico) "grilla económica: penalty 4 x mixture 3" else
+        "grilla regular: penalty 10^[-5, 0] x mixture [0, 1]"
     ),
 
     cart = list(
@@ -240,9 +246,10 @@ especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
       grilla = grid_regular(
         cost_complexity(range = c(-5, -1)),
         tree_depth(range = c(3, 15)),
-        levels = tamano_grilla(6, 2)
+        levels = tamano(6, 2, 2)
       ),
-      busqueda = "grilla regular: cost_complexity 10^[-5, -1] x tree_depth [3, 15]"
+      busqueda = if (perfil_economico) "grilla económica 2 x 2: cost_complexity x tree_depth" else
+        "grilla regular: cost_complexity 10^[-5, -1] x tree_depth [3, 15]"
     ),
 
     random_forest = list(
@@ -255,10 +262,13 @@ especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
       grilla = grid_space_filling(
         mtry(range = c(3, 25)),
         min_n(range = c(5, 60)),
-        size = tamano_grilla(15, 2),
+        size = tamano(15, 2, 4),
         type = "latin_hypercube"
       ),
-      busqueda = "latin hypercube: mtry [3, 25] x min_n [5, 60], 500 árboles"
+      busqueda = paste0(
+        if (perfil_economico) "latin hypercube económica: " else "latin hypercube: ",
+        "mtry [3, 25] x min_n [5, 60], ", n_arboles_rf, " árboles"
+      )
     ),
 
     xgboost = list(
@@ -267,13 +277,17 @@ especificar_algoritmo <- function(nombre, razon_pesos = NULL) {
         set_engine("xgboost", nthread = !!hilos, scale_pos_weight = !!peso_motor) |>
         set_mode("classification"),
       grilla = grid_space_filling(
-        trees(range = c(200, tamano_grilla(1000, 300))),
+        trees(range = c(200, tamano(1000, 300, 600))),
         tree_depth(range = c(3, 8)),
         learn_rate(range = c(-3, -1)),
-        size = tamano_grilla(20, 3),
+        size = tamano(20, 3, 4),
         type = "latin_hypercube"
       ),
-      busqueda = "latin hypercube: trees [200, 1000] x tree_depth [3, 8] x learn_rate 10^[-3, -1]"
+      busqueda = if (perfil_economico) {
+        "latin hypercube económica: trees [200, 600] x tree_depth [3, 8] x learn_rate 10^[-3, -1]"
+      } else {
+        "latin hypercube: trees [200, 1000] x tree_depth [3, 8] x learn_rate 10^[-3, -1]"
+      }
     ),
 
     naive_bayes = list(

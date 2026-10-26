@@ -74,6 +74,18 @@ hiperparametros <- list(
                     loss_reduction = 0, sample_size = 1)
 )
 
+test_that("el perfil económico mantiene grillas pequeñas", {
+  economicos <- map(
+    c("elastic_net", "cart", "random_forest", "xgboost"),
+    ~ especificar_algoritmo(.x, economico = TRUE)
+  )
+  expect_lte(nrow(economicos[[1]]$grilla), 12)
+  expect_lte(nrow(economicos[[2]]$grilla), 4)
+  expect_lte(nrow(economicos[[3]]$grilla), 4)
+  expect_lte(nrow(economicos[[4]]$grilla), 4)
+  expect_lte(max(economicos[[4]]$grilla$trees), 600)
+})
+
 test_that("los datos sintéticos replican el orden de niveles y el desbalance del proyecto", {
   expect_identical(levels(datos$pobre), c("pobre", "no_pobre"))
   expect_gt(razon, 2)

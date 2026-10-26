@@ -1,4 +1,10 @@
 fecha,archivo,nivel,candidato,algoritmo,especificacion,f1_cv,f1_holdout,top3,orden_subida,f1_kaggle
+2026-10-25,lpm_20261025_100003.csv,NA,NA,LPM,"LPM | receta base | umbral óptimo F1",0.6171,NA,,,NA
+2026-10-25,logit_20261025_100224.csv,NA,NA,Logit,"Logit | receta base | umbral óptimo F1",0.6465,NA,,,NA
+2026-10-25,elastic_net_20261025_101433.csv,NA,NA,Elastic Net,"Elastic Net | receta base | grid 20x6 | umbral óptimo F1",0.6463,NA,,,NA
+2026-10-25,lpm_20261025_114039.csv,NA,NA,LPM,"LPM | receta base | umbral óptimo F1",0.6192,NA,,,NA
+2026-10-25,logit_20261025_114332.csv,NA,NA,Logit,"Logit | receta base | umbral óptimo F1",0.6465,NA,,,NA
+2026-10-25,elastic_net_20261025_115644.csv,NA,NA,Elastic Net,"Elastic Net | receta base | grid 20x6 | umbral óptimo F1",0.6464,NA,,,NA
 2026-10-18,candidatos/n6_lightgbm.csv,6,n6_lightgbm,Boosting,"Boosting (lightgbm) | 6. Complejo (48 variables) | balanceo: ninguno | latin hypercube 50: trees [200, 2000], tree_depth [3, 12], learn_rate 10^[-3, -0.7], min_n [10, 200], mtry [0.2, 1], loss_reduction 10^[-10, 1], sample_size [0.5, 1]",0.7437,0.7488,1,1,
 2026-10-18,candidatos/n4_random_forest.csv,4,n4_random_forest,Random Forest,"Random Forest (random_forest) | 4. Algoritmos (48 variables) | balanceo: ninguno | latin hypercube: mtry [3, 25] x min_n [5, 60], 500 árboles",0.7265,0.7343,2,2,
 2026-10-18,candidatos/n3_logit.csv,3,n3_logit,Logit,Logit (logit) | 3. Base + variables (48 variables) | balanceo: ninguno | sin hiperparámetros,0.7171,0.7176,3,3,

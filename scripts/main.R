@@ -22,7 +22,8 @@ scripts <- c(
   "09_comparacion.R",
   "10_mejor_modelo.R",
   "11_exportar_python.R",   # insumos del nivel 7 (python/, ver README)
-  "12_diagnostico_nivel7.R"
+  "12_diagnostico_nivel7.R",
+  "13_figuras_presentacion.R"  # figuras de los decks; requiere las tablas del nivel 7
 )
 
 for (script in scripts) {

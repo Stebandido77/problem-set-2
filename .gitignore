@@ -65,5 +65,11 @@ stores/rapido/
 # Registro de la corrida por candidato (hora, etapa y RAM): se regenera
 stores/logs/
 
+# ---- Etapa 17 (diseño limpio): intermedios pesados (.rds, logs) ----
+# Las tablas livianas y la submission se versionan en limpio/resultados/.
+limpio/salidas/
+limpio/salidas_prueba/
+limpio/resultados_prueba/
+
 # ---- Entorno aparte de AutoGluon (etapa 12) ----
 python/.venv_autogluon/

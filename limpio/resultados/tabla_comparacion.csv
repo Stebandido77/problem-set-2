@@ -1,0 +1,5 @@
+variante,escenario,f1_cv_sin_bogota,de_cv_sin_bogota,precision_cv_sin_bogota,recall_cv_sin_bogota,f1_cv_completo,umbral,f1_holdout_completo,f1_holdout_sin_bogota,precision_holdout_sin_bogota,recall_holdout_sin_bogota,tasa_predicha_test
+auxiliar,con_bogota,0.7494,7e-04,0.7028,0.8028,0.7479,0.3709,0.7507,0.7523,0.7107,0.799,0.2362
+auxiliar,sin_bogota,0.7494,5e-04,0.6987,0.8082,0.7479,0.3655,0.7486,0.751,0.7041,0.8047,0.238
+parsimonioso,con_bogota,0.7492,4e-04,0.7003,0.8055,0.7476,0.3567,0.7465,0.7486,0.7029,0.8007,0.2372
+parsimonioso,sin_bogota,0.7486,0.0012,0.7038,0.7995,0.747,0.3623,0.7486,0.7511,0.7097,0.7976,0.2343

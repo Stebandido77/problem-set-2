@@ -1,0 +1,7 @@
+prueba,valor,pasa
+A. holdout y 80 % disjuntos,0,TRUE
+B. RMSE interno >= externo (brecha relativa media mínima),0.0034,TRUE
+C. control negativo: F1 permutado - F1 sin columna (mismos parámetros),2e-04,TRUE
+D. control positivo: F1 con fuga - F1 auxiliar anidado,0.009,TRUE
+E. KS entrenamiento vs holdout (sin Bogotá),0.006,TRUE
+E. KS entrenamiento vs test,0.0039,TRUE

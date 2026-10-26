@@ -1,0 +1,32 @@
+prueba,valor,pasa
+A: auxiliar ingreso_personas anidado sin fuga (r1),,True
+A: auxiliar ingreso_total_personas anidado sin fuga (r1),,True
+A: auxiliar ingreso_fuentes_v3 anidado sin fuga (r1),,True
+A: auxiliar ingreso_personas anidado sin fuga (r2),,True
+A: auxiliar ingreso_total_personas anidado sin fuga (r2),,True
+A: auxiliar ingreso_fuentes_v3 anidado sin fuga (r2),,True
+A: auxiliar ingreso_personas anidado sin fuga (r3),,True
+A: auxiliar ingreso_total_personas anidado sin fuga (r3),,True
+A: auxiliar ingreso_fuentes_v3 anidado sin fuga (r3),,True
+"limpio: RMSE entrenamiento >= evaluación (cv_1, r0)",-0.009665958275967399,True
+"limpio: RMSE entrenamiento >= evaluación (cv_2, r0)",0.010568249299131294,True
+"limpio: RMSE entrenamiento >= evaluación (cv_3, r0)",0.00788293106587972,True
+"limpio: RMSE entrenamiento >= evaluación (cv_4, r0)",0.007726148673619727,True
+"limpio: RMSE entrenamiento >= evaluación (cv_5, r0)",0.0008165235434190053,True
+"limpio: RMSE entrenamiento >= evaluación (holdout, r0)",-0.00820015966140228,True
+"limpio: RMSE entrenamiento >= evaluación (cv_1, r1)",0.008788529030196815,True
+"limpio: RMSE entrenamiento >= evaluación (cv_2, r1)",0.015597089634716042,True
+"limpio: RMSE entrenamiento >= evaluación (cv_3, r1)",0.009009932861936621,True
+"limpio: RMSE entrenamiento >= evaluación (cv_4, r1)",-0.01533231932237383,True
+"limpio: RMSE entrenamiento >= evaluación (cv_5, r1)",0.0025239694814225746,True
+"limpio: RMSE entrenamiento >= evaluación (cv_1, r2)",-0.0024998553751047533,True
+"limpio: RMSE entrenamiento >= evaluación (cv_2, r2)",-0.00043681823124426067,True
+"limpio: RMSE entrenamiento >= evaluación (cv_3, r2)",0.013505228277905925,True
+"limpio: RMSE entrenamiento >= evaluación (cv_4, r2)",-0.009350087416451713,True
+"limpio: RMSE entrenamiento >= evaluación (cv_5, r2)",0.016036930272999187,True
+"limpio: RMSE entrenamiento >= evaluación (cv_1, r3)",0.003497451249354129,True
+"limpio: RMSE entrenamiento >= evaluación (cv_2, r3)",0.0002440038596512989,True
+"limpio: RMSE entrenamiento >= evaluación (cv_3, r3)",0.012217423266494267,True
+"limpio: RMSE entrenamiento >= evaluación (cv_4, r3)",0.006534976247566046,True
+"limpio: RMSE entrenamiento >= evaluación (cv_5, r3)",-0.0017170966520568748,True
+limpio: el contexto holdout cubre exactamente el train (80 % OOF + holdout),,True

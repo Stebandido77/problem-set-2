@@ -10,7 +10,7 @@
   \begin{columns}[T]
     \column{0.36\textwidth}\centering \keyfig{0,78}{\begin{tabular}{@{}c@{}}F1 en Kaggle: Público \kagglepublico{} $\cdot$ Privado 0,78\\(\textbf{2.º lugar})\end{tabular}}
     \column{0.30\textwidth}\centering \keyfig{0,782}{F1 en el 20\,\% apartado (holdout)}
-    \column{0.30\textwidth}\centering \keyfig{18}{submissions en Kaggle}
+    \column{0.30\textwidth}\centering \keyfig{18}{submissions en Kaggle (7 algoritmos)}
   \end{columns}
   \vspace{0.15cm}
   \footnotesize
@@ -21,13 +21,13 @@
         \item Estimamos el ingreso de cada persona con lo que el test sí trae: ocupación,
           horas, cotización.
         \item Lo sumamos por hogar y lo comparamos con la línea.
-        \item Un boosting de árboles (LightGBM) decide: pobre si $P \geq 0{,}36$.
+        \item Una mezcla liderada por LightGBM decide: pobre si $P \geq 0{,}36$.
       \end{enumerate}
     \column{0.48\textwidth}
       \textbf{Lo que encontramos}
       \begin{enumerate}
         \item Saber cuánto gana cada persona vale más que el algoritmo.
-        \item Nadie pasa de 0,78: un tercio de los pobres está casi en la línea.
+        \item Ninguna de nuestras alternativas pasa de 0,78: un tercio de los pobres está casi en la línea.
         \item Los excluidos están cerca de la línea.
       \end{enumerate}
   \end{columns}

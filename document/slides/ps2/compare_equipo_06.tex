@@ -121,7 +121,7 @@
       \end{itemize}
   \end{columns}
   \takeaway{Los más cercanos al boosting: Random Forest y Elastic Net.}
-  \fuente{48 variables, 32.993 hogares apartados (holdout). En Kaggle subimos 18 predicciones. Fuente: views/tablas/comparacion\_algoritmos.csv; stores/submissions/bitacora\_kaggle.csv.}
+  \fuente{48 variables, 32.993 hogares apartados (holdout). En Kaggle subimos 18 predicciones de 7 algoritmos. Fuente: views/tablas/comparacion\_algoritmos.csv; stores/submissions/bitacora\_kaggle.csv.}
   \note{
     \textbf{Qué decir (1 min).} Estos son los siete algoritmos del curso con las mismas
     variables. Como esperábamos, el boosting queda primero y los modelos lineales y Naive
@@ -144,7 +144,7 @@
       \centering\footnotesize\setlength{\tabcolsep}{4pt}
       \begin{tabular}{@{}lcc@{}}
         \toprule
-        48 variables & Random Forest & Boosting \\
+        48 variables & Random Forest & XGBoost \\
         \midrule
         Pobres encontrados (recall) & 80\,\% & 79\,\% \\
         Precisión & 68\,\% & 70\,\% \\
@@ -153,40 +153,27 @@
         F1 & 0,734 & 0,746 \\
         \bottomrule
       \end{tabular}
-      \vspace{0.25cm}
-
-      \begin{tabular}{@{}lc@{}}
-        \toprule
-        Con ingreso estimado por persona & F1 \\
-        \midrule
-        Boosting (LightGBM) & 0,781 \\
-        Random Forest & 0,776 \\
-        \bottomrule
-      \end{tabular}
     \column{0.46\textwidth}
       \footnotesize
-      \textbf{Bosque:} árboles profundos en paralelo, promediados. \textbf{Boosting:}
+      \textbf{Bosque:} árboles profundos en paralelo, promediados. \textbf{XGBoost:}
       árboles pequeños que corrigen los errores anteriores.
       \begin{itemize}
         \item Bosque: 277 no pobres más.
-        \item Con ingreso estimado, brecha de 0,012 a 0,005.
       \end{itemize}
   \end{columns}
-  \takeaway{El boosting gana por filtrar menos, no por cubrir más.}
-  \fuente{Boosting de la tabla de arriba: XGBoost. Abajo, el Random Forest usa 60 variables elegidas por un algoritmo genético (no es cancha nivelada). Fuente: views/tablas/leaderboard\_interno.csv; views/tablas/nivel7/etapa9\_candidatos.csv.}
+  \vspace{0.3cm}
+  \takeaway{XGBoost gana por filtrar menos, no por cubrir más.}
+  \fuente{48 variables, datos apartados (holdout). Fuente: views/tablas/leaderboard\_interno.csv.}
   \note{
     \textbf{Qué decir (1 min).} Random Forest es el rival más cercano. Encuentra
-    prácticamente a los mismos pobres que el boosting, pero le da el subsidio a 277
-    hogares no pobres más. ¿Por qué? El bosque construye muchos árboles profundos en
-    paralelo y los promedia; el boosting construye árboles pequeños uno tras otro, y cada
-    uno se concentra en los errores que quedan, que son los hogares cerca de la línea. Y
-    un dato importante: cuando le damos a los dos el ingreso estimado por persona, la
-    brecha se reduce a menos de la mitad. Con mejores variables, el algoritmo importa
-    menos.\\[3pt]
-    \textbf{Pregunta del profesor: la comparación de abajo no es justa, ¿por qué la
-    muestran?}
-    \textbf{Respuesta:} Tienen razón, el bosque usó 60 variables y LightGBM todas. Solo la
-    usamos para mostrar que la brecha se achica, no para medirla con precisión.
+    prácticamente a los mismos pobres que XGBoost, pero le da el subsidio a 277 hogares
+    no pobres más. ¿Por qué? El bosque construye muchos árboles profundos en paralelo y
+    los promedia; XGBoost construye árboles pequeños uno tras otro, y cada uno se
+    concentra en los errores que quedan, que son los hogares cerca de la línea.\\[3pt]
+    \textbf{Pregunta del profesor: ¿por qué el bosque incluye más no pobres?}
+    \textbf{Respuesta:} Porque promedia árboles que se entrenan por separado y ninguno se
+    especializa en los hogares difíciles; en el boosting, cada árbol nuevo se dedica a
+    corregir esos errores.
   }
 \end{frame}
 
@@ -326,7 +313,7 @@
     \toprule
     & Encuesta corta (Logit) & Logit completo & Mejor modelo \\
     \midrule
-    Preguntas o variables & 8 & 48 & 1.324 + ingreso estimado \\
+    Preguntas o variables & 8 & 48 & 1.324 (incluye ingreso estimado) \\
     F1 en datos apartados & 0,664 & 0,718 & 0,782 \\
     Subcobertura (pobres por fuera) & 26\,\% & 23\,\% & 18\,\% \\
     Filtración (reciben sin necesitarlo) & 40\,\% & 33\,\% & 25\,\% \\
@@ -360,7 +347,7 @@
   \begin{enumerate}
     \item \textbf{Elegir por el costo de cada error.}
     \item \textbf{LightGBM solo}: rinde igual que la mezcla.
-    \item \textbf{Transparencia}: boosting interpretable (0,777) o Logit (0,718).
+    \item \textbf{Transparencia}: EBM, boosting interpretable (0,777) o Logit (0,718).
     \item \textbf{Encuesta corta}: umbral más bajo y verificación en campo.
   \end{enumerate}
   \takeaway{Decide qué se puede medir y cuánto cuesta excluir.}
@@ -396,7 +383,7 @@
     \midrule
     Número de árboles & [200, 2000] & 1.852 & muchos árboles \\
     Tasa de aprendizaje & $10^{[-3,\,-0{,}7]}$ & 0,011 & pasos pequeños \\
-    Profundidad máxima & [3, 12] & 12 (31 hojas) & árboles medianos \\
+    Profundidad máxima & [3, 12] & 12 (31 hojas) & árboles pequeños \\
     Mínimo de hogares por hoja & [10, 200] & 171 & no memoriza casos \\
     Variables por corte & [0,2; 1] & 0,82 & algo de azar \\
     Hogares por árbol & [0,5; 1] & 0,70 & algo de azar \\

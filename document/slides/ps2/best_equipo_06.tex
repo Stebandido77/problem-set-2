@@ -186,7 +186,7 @@
       escondido.
   \end{columns}
   \takeaway{El modelo reconstruye el ingreso y lo corrige por el costo de vivir.}
-  \fuente{Peso: cuánto reduce el error cada variable en los árboles del LightGBM (76\,\% de la mezcla). Grupos: 17, 15, 1.026 y 266 variables. Fuente: views/tablas/nivel7/etapa7\_a\_importancia.csv, etapa15\_ebm\_importancia.csv.}
+  \fuente{Peso: cuánto reduce el error cada variable en los árboles del LightGBM, el modelo con más peso en la mezcla. Grupos: 17, 15, 1.026 y 266 variables. Fuente: views/tablas/nivel7/etapa7\_a\_importancia.csv, etapa15\_ebm\_importancia.csv.}
   \note{
     \textbf{Qué decir (1 min).} ¿Qué aprendió el modelo? Tres cuartas partes de sus
     decisiones vienen de 17 variables de ingreso estimado. Le sigue la vivienda: cuánto
@@ -270,7 +270,7 @@
       \begin{itemize}
         \item 75 intentos más: mismo F1 (0,776).
         \item Balancear las clases: 0,744 a 0,747; sin balancear, 0,746.
-        \item Solo cambia el umbral (0,36 $\to$ 0,66).
+        \item Solo mueve el umbral (entre 0,34 y 0,69).
       \end{itemize}
   \end{columns}
   \takeaway{Elegir bien el umbral ya resuelve el desbalance.}
@@ -290,7 +290,7 @@
 \end{frame}
 
 %% El límite
-\begin{frame}{Ningún modelo pasa de 0,78: un tercio de los pobres está casi en la línea}
+\begin{frame}{Ninguna alternativa nuestra pasa de 0,78: un tercio de los pobres está casi en la línea}
   \centering\includegraphics[width=\linewidth]{techo_dos_paneles}\par
   \raggedright\footnotesize
   \begin{columns}[T]
@@ -300,7 +300,7 @@
   \takeaway{El límite es la información que falta, no el algoritmo.}
   \fuente{Datos apartados, versión previa del modelo (0,776). Más datos y 16 alternativas: apéndice. Fuente: views/tablas/nivel7/techo\_oraculo.csv, techo\_bandas.csv.}
   \note{
-    \textbf{Qué decir (1 min).} ¿Por qué nadie pasa de 0,78? Tres pruebas. A: si le damos
+    \textbf{Qué decir (1 min).} ¿Por qué ninguna de nuestras alternativas pasa de 0,78? Tres pruebas. A: si le damos
     al modelo el ingreso real, el F1 sube a casi 0,9; lo que falta es información sobre el
     ingreso. B: un tercio de los pobres tiene un ingreso a menos de 20\,\% de la línea.
     Para ellos, un hogar pobre y uno no pobre se ven casi iguales en la encuesta, y el F1
@@ -332,7 +332,7 @@
           que el no pobre típico.
       \end{itemize}
   \end{columns}
-  \takeaway{Pesando cada error por su distancia a la línea: subcobertura 11\,\%, filtración 1\,\%.}
+  \takeaway{Pesando cada error por su distancia a la línea, el costo está en la subcobertura (11\,\%), no en la filtración (1\,\%).}
   \fuente{Datos apartados (holdout), umbral 0,36. Cerca: ingreso $\geq 0{,}8$ veces la línea. Extrema: $< 0{,}5$. Logit, 48: Logit con 48 variables. Mezcla sin el rediseño (95\,\% del peso final). Fuente: views/tablas/nivel7/etapa15\_pesos\_bienestar.csv, etapa15\_errores\_subgrupo.csv.}
   \note{
     \textbf{Qué decir (1 min).} Cada error tiene un costo humano, pero no todos cuestan
@@ -342,7 +342,11 @@
     pero están mucho más cerca de la línea que el no pobre típico: su distancia media
     a la línea es 0,51, frente a 2,83 del no pobre promedio. Si contamos cada error según qué
     tan lejos está de la línea, la subcobertura baja a 11\,\% y la filtración casi
-    desaparece.\\[3pt]
+    desaparece. Cómo se pondera: cada pobre excluido pesa su brecha,
+    $1 - \text{ingreso}/\text{línea}$, y la subcobertura ponderada es la suma de esas brechas
+    sobre la de todos los pobres; cada no pobre atendido pesa su distancia,
+    $\text{ingreso}/\text{línea} - 1$, sobre la suma de las distancias de todos los no
+    pobres.\\[3pt]
     \textbf{Pregunta del profesor: ¿el modelo discrimina a algún grupo?}
     \textbf{Respuesta:} Hay más subcobertura en hogares de una o dos personas (34\,\% y
     28\,\%) y en Manizales y Pereira, porque ahí el ingreso depende de una sola persona.
@@ -421,7 +425,7 @@
     \item \textbf{Vigilar} hogares pequeños, Manizales y Pereira.
   \end{enumerate}
   \takeaway{Medir bien el ingreso vale más que el algoritmo.}
-  \fuente{Encuesta corta: atendiendo al 40\,\% de los hogares cubre al 91\,\% de los pobres. Fuente: views/tablas/nivel7/etapa15\_curva\_cobertura.csv, etapa15\_errores\_subgrupo.csv.}
+  \fuente{Atendiendo al 30\,\% de los hogares se cubre al 92,9\,\% de los pobres con el modelo, al 87,1\,\% con el Logit y al 81,5\,\% con la encuesta corta (datos apartados). Fuente: views/tablas/nivel7/etapa15\_curva\_cobertura.csv, etapa15\_errores\_subgrupo.csv.}
   \note{
     \textbf{Qué decir (1 min).} Cerramos con lo que le diríamos a una agencia. Primero, la
     inversión que más rinde es preguntar bien por el trabajo de cada persona; con eso, un

@@ -8,10 +8,9 @@
   {Reconstruir el ingreso de cada persona encuentra al 82\,\% de los hogares pobres}
   \vspace{-0.15cm}
   \begin{columns}[T]
-    \column{0.36\textwidth}\centering \keyfig{0,78}{F1 final en Kaggle: \textbf{2.º lugar}}
-    \ifx\kagglepublico\empty\else{\scriptsize\color{andesgray} F1 público: \kagglepublico\par}\fi
+    \column{0.36\textwidth}\centering \keyfig{0,78}{\begin{tabular}{@{}c@{}}F1 en Kaggle: Público \kagglepublico{} $\cdot$ Privado 0,78\\(\textbf{2.º lugar})\end{tabular}}
     \column{0.30\textwidth}\centering \keyfig{0,782}{F1 en el 20\,\% apartado (holdout)}
-    \column{0.30\textwidth}\centering \keyfig{35}{submissions, 7 algoritmos}
+    \column{0.30\textwidth}\centering \keyfig{18}{submissions en Kaggle}
   \end{columns}
   \vspace{0.15cm}
   \footnotesize
@@ -32,13 +31,13 @@
         \item Los excluidos están cerca de la línea.
       \end{enumerate}
   \end{columns}
-  \fuente{Kaggle: tabla final (privada). LightGBM pesa 76\,\% de una mezcla con dos redes y un rediseño. Fuente: views/tablas/nivel7/etapa18\_resumen.csv.}
+  \fuente{Kaggle: tablas pública y privada (final). LightGBM pesa 76\,\% de una mezcla con dos redes y un rediseño. Fuente: views/tablas/nivel7/etapa18\_resumen.csv.}
   \note{
     \textbf{Qué decir (1 min).} El gobierno quiere encontrar a los hogares pobres, pero la
     pobreza se define por el ingreso, y el ingreso es justo lo que no se puede preguntar
     bien. Nuestra respuesta fue reconstruirlo: estimamos cuánto gana cada persona con
     preguntas sencillas sobre su trabajo, lo sumamos por hogar y lo comparamos con la
-    línea. Con eso quedamos segundos en Kaggle, con un F1 final de 0,78. Tres mensajes que
+    línea. Con eso quedamos segundos en Kaggle, con un F1 de 0,78 tanto en la tabla pública como en la privada, que es la final. Tres mensajes que
     vamos a sostener: primero, las buenas variables pesaron mucho más que el algoritmo;
     segundo, hay un techo cerca de 0,78 porque muchos pobres están casi en la línea; y
     tercero, los hogares que el modelo deja por fuera están cerca de la línea, no en la

@@ -27,26 +27,27 @@
   \begin{columns}[T]
     \column{0.62\textwidth}
       \small
-      Pobre: ingreso por persona bajo la línea de su ciudad. El test no trae ingresos.
+      Pobre: ingreso por persona bajo la línea; el test no lo trae.
       \begin{itemize}
-        \item Preguntarlo es caro, la gente lo esconde y cambia mes a mes.
-        \item ``Nadie es pobre'' acierta 80\,\%, pero no encuentra a ningún pobre: usamos F1.
+        \item Preguntarlo es caro y poco confiable.
+        \item ``Nadie es pobre'' acierta 80\,\%: usamos F1.
       \end{itemize}
     \column{0.34\textwidth}
       \centering
       \vspace{0.3cm}
-      \keyfig{164.960}{hogares para entrenar}\\[0.4cm]
+      \keyfig{164.960}{hogares}\\[0.4cm]
       \keyfig{1 de 5}{es pobre}
   \end{columns}
-  \takeaway{Hay que reconstruir el ingreso con lo que sí se ve.}
-  \fuente{66.168 hogares para predecir. 79 variables solo existen en train, entre ellas todos los ingresos. Fuente: views/tablas/variables\_ausentes\_test\_*.csv; views/tablas/desbalance\_clases.csv.}
+  \takeaway{Reconstruiremos el ingreso con lo que sí se ve.}
+  \fuente{Fuente: views/tablas/variables\_ausentes\_test\_*.csv; views/tablas/desbalance\_clases.csv.}
   \note{
     \textbf{Qué decir (1 min).} La regla de pobreza es mecánica: si el ingreso por persona
-    del hogar está bajo la línea de su ciudad, el hogar es pobre. El problema es que el
-    test no trae ningún ingreso, igual que pasaría en una encuesta corta del gobierno:
+    del hogar está bajo la línea de su ciudad, el hogar es pobre. Tenemos 164.960 hogares
+    para entrenar y 66.168 para predecir. El problema es que el test no trae ningún
+    ingreso (79 variables solo existen en train, entre ellas todos los ingresos), igual que pasaría en una encuesta corta del gobierno:
     preguntar el ingreso es caro, la gente lo subreporta y además cambia mes a mes.
     Además, solo uno de cada cinco hogares es pobre. Un modelo que diga que nadie es
-    pobre acierta en el 80\,\% de los casos, pero no le sirve a nadie. Por eso usamos el
+    pobre acierta en el 80\,\% de los casos, pero no encuentra a ningún pobre. Por eso usamos el
     F1, que castiga tanto dejar pobres por fuera como darle el subsidio a quien no lo
     necesita.\\[3pt]
     \textbf{Pregunta del profesor: ¿por qué no predecir el ingreso y aplicar la línea?}
@@ -58,9 +59,9 @@
 %% La idea
 \begin{frame}{Cuántos trabajan y cuántos dependen ya separan a pobres de no pobres}
   \begin{columns}[c]
-    \column{0.64\textwidth}
+    \column{0.62\textwidth}
       \includegraphics[width=\linewidth]{correlatos_pobreza}
-    \column{0.34\textwidth}
+    \column{0.36\textwidth}
       \footnotesize
       \textbf{Ingreso por persona} $=$ cuántos trabajan $\times$ cuánto gana cada uno
       $\div$ cuántos comen.
@@ -72,7 +73,7 @@
       \end{itemize}
   \end{columns}
   \takeaway{Ninguna variable sola basta: la mejor da un F1 de 0,47.}
-  \fuente{Tasa de pobreza en los 164.960 hogares de train. Fuente: scripts/13\_figuras\_presentacion.R; views/tablas/leaderboard\_interno.csv.}
+  \fuente{Tasa de pobreza en los 164.960 hogares de train; promedio: 20\,\%. Fuente: scripts/13\_figuras\_presentacion.R; views/tablas/leaderboard\_interno.csv.}
   \note{
     \textbf{Qué decir (1 min).} Si no vemos el ingreso, partimos de cómo se forma: cuántas
     personas trabajan, cuánto gana cada una y entre cuántas se reparte. Los datos
@@ -143,20 +144,9 @@
 \end{frame}
 
 \begin{frame}{Saber cuánto gana cada persona vale más que el algoritmo}
-  \begin{columns}[c]
-    \column{0.66\textwidth}
-      \includegraphics[width=\linewidth]{escalera_completa}
-    \column{0.32\textwidth}
-      \small
-      \textbf{Suma de los saltos}
-      \begin{itemize}
-        \item \textcolor{andesaccent}{\textbf{Mejores variables}}: $+0{,}29$.
-        \item \textbf{Mejor algoritmo}: $+0{,}03$.
-      \end{itemize}
-      Salto mayor: el mismo Logit con variables desde las personas.
-  \end{columns}
-  \takeaway{Rinde nueve veces más entender el hogar que cambiar de algoritmo.}
-  \fuente{F1 en los datos apartados (holdout), un paso a la vez. Fuente: views/tablas/leaderboard\_interno.csv y nivel7/ (ablacion\_etapa1, resumen\_etapa2, etapa6\_ablacion, etapa7\_a, etapa18\_resumen).}
+  \centering\includegraphics[width=\linewidth]{escalera_completa}
+  \takeaway{Variables: $+0{,}29$; algoritmo: $+0{,}03$. Entender el hogar rinde nueve veces más.}
+  \fuente{F1 en datos apartados, un paso a la vez. Fuente: views/tablas/leaderboard\_interno.csv y views/tablas/nivel7/.}
   \note{
     \textbf{Qué decir (1 min).} Esta escalera resume todo el proceso. Cada punto es un paso,
     medido siempre en los mismos datos apartados. Los puntos amarillos cambian las
@@ -173,18 +163,20 @@
 
 \begin{frame}{El modelo decide con el ingreso estimado y con el arriendo}
   \begin{columns}[c]
-    \column{0.60\textwidth}
+    \column{0.56\textwidth}
+      {\footnotesize\textbf{Peso de cada grupo de variables}\par}
       \includegraphics[width=\linewidth]{importancia_n7_a}
-    \column{0.38\textwidth}
+    \column{0.42\textwidth}
       \tablachica
-      \begin{tabular}{@{}lrr@{}}
+      \begin{tabular}{@{}lr@{}}
         \toprule
-        Grupo & Variables & Peso \\
+        Las cinco variables con más peso & Peso \\
         \midrule
-        Ingreso estimado & 17 & 76\,\% \\
-        Vivienda y arriendo & 15 & 11\,\% \\
-        Resúmenes por rol & 1.026 & 9\,\% \\
-        Resto & 266 & 4\,\% \\
+        Ingreso estimado / línea (fuentes) & 57\,\% \\
+        Ingreso estimado / línea (total) & 8\,\% \\
+        Ingreso estimado (fuentes) & 6\,\% \\
+        Arriendo por persona / línea & 3\,\% \\
+        Vive en arriendo & 2\,\% \\
         \bottomrule
       \end{tabular}
       \vspace{0.15cm}
@@ -194,7 +186,7 @@
       escondido.
   \end{columns}
   \takeaway{El modelo reconstruye el ingreso y lo corrige por el costo de vivir.}
-  \fuente{Peso: cuánto reduce el error cada variable en los árboles del LightGBM (76\,\% de la mezcla). Fuente: views/tablas/nivel7/etapa7\_a\_importancia.csv, etapa15\_ebm\_importancia.csv.}
+  \fuente{Peso: cuánto reduce el error cada variable en los árboles del LightGBM (76\,\% de la mezcla). Grupos: 17, 15, 1.026 y 266 variables. Fuente: views/tablas/nivel7/etapa7\_a\_importancia.csv, etapa15\_ebm\_importancia.csv.}
   \note{
     \textbf{Qué decir (1 min).} ¿Qué aprendió el modelo? Tres cuartas partes de sus
     decisiones vienen de 17 variables de ingreso estimado. Le sigue la vivienda: cuánto
@@ -299,21 +291,21 @@
 
 %% El límite
 \begin{frame}{Ningún modelo pasa de 0,78: un tercio de los pobres está casi en la línea}
-  \centering\includegraphics[height=3.85cm]{techo_tres_paneles}\par
+  \centering\includegraphics[width=\linewidth]{techo_dos_paneles}\par
   \raggedright\footnotesize
   \begin{columns}[T]
-    \column{0.38\textwidth} \textbf{A.} Con el ingreso real: 0,89.
-    \column{0.30\textwidth} \textbf{B.} 32\,\% de los pobres, a $\pm$\,20\,\% de la línea: 0,65.
-    \column{0.28\textwidth} \textbf{C.} Cuatro veces más datos: $+0{,}01$.
+    \column{0.58\textwidth} \textbf{A.} Con el ingreso real, el F1 llega a 0,89.
+    \column{0.40\textwidth} \textbf{B.} Ahí está el 32\,\% de los pobres.
   \end{columns}
   \takeaway{El límite es la información que falta, no el algoritmo.}
-  \fuente{F1 en los datos apartados con una versión previa del modelo (0,776). 16 alternativas más quedan entre 0,750 y 0,782 (apéndice). Fuente: views/tablas/nivel7/techo\_oraculo.csv, techo\_bandas.csv, techo\_curva\_aprendizaje.csv.}
+  \fuente{Datos apartados, versión previa del modelo (0,776). Más datos y 16 alternativas: apéndice. Fuente: views/tablas/nivel7/techo\_oraculo.csv, techo\_bandas.csv.}
   \note{
     \textbf{Qué decir (1 min).} ¿Por qué nadie pasa de 0,78? Tres pruebas. A: si le damos
     al modelo el ingreso real, el F1 sube a casi 0,9; lo que falta es información sobre el
     ingreso. B: un tercio de los pobres tiene un ingreso a menos de 20\,\% de la línea.
     Para ellos, un hogar pobre y uno no pobre se ven casi iguales en la encuesta, y el F1
-    cae a 0,65. C: más datos casi no ayudan; cuadruplicarlos sube el F1 una centésima.
+    cae a 0,65. Y más datos casi no ayudan: cuadruplicarlos sube el F1 una centésima
+    (apéndice).
     Además probamos 16 enfoques más, desde redes neuronales hasta modelos automáticos, y
     todos chocan con el mismo techo.\\[3pt]
     \textbf{Pregunta del profesor: si les damos el ingreso real, ¿por qué no llega a 1?}
@@ -328,9 +320,10 @@
 %% ============================================================
 \begin{frame}{Los pobres que se nos escapan están justo en la línea}
   \begin{columns}[c]
-    \column{0.58\textwidth}
+    \column{0.60\textwidth}
+      {\footnotesize\textbf{Pobres por fuera, según su ingreso}\par}
       \includegraphics[width=\linewidth]{excluidos_por_modelo}
-    \column{0.40\textwidth}
+    \column{0.38\textwidth}
       \footnotesize
       \begin{itemize}
         \item \textbf{Subcobertura} (pobres por fuera): 18\,\%; seis de cada diez, cerca
@@ -340,7 +333,7 @@
       \end{itemize}
   \end{columns}
   \takeaway{Pesando cada error por su distancia a la línea: subcobertura 11\,\%, filtración 1\,\%.}
-  \fuente{Datos apartados (holdout), umbral 0,36. Cerca de la línea: ingreso $\geq 0{,}8$ veces la línea. Pobreza extrema: $< 0{,}5$. Mezcla sin el rediseño (95\,\% del peso final). Fuente: views/tablas/nivel7/etapa15\_pesos\_bienestar.csv, etapa15\_errores\_subgrupo.csv.}
+  \fuente{Datos apartados (holdout), umbral 0,36. Cerca: ingreso $\geq 0{,}8$ veces la línea. Extrema: $< 0{,}5$. Logit, 48: Logit con 48 variables. Mezcla sin el rediseño (95\,\% del peso final). Fuente: views/tablas/nivel7/etapa15\_pesos\_bienestar.csv, etapa15\_errores\_subgrupo.csv.}
   \note{
     \textbf{Qué decir (1 min).} Cada error tiene un costo humano, pero no todos cuestan
     lo mismo. El modelo deja por fuera al 18\,\% de los pobres, y seis de cada diez de
@@ -359,24 +352,25 @@
 
 \begin{frame}{El umbral es una decisión de política, no estadística}
   \begin{columns}[c]
-    \column{0.50\textwidth}
+    \column{0.54\textwidth}
       \includegraphics[width=\linewidth]{curva_cobertura_slides}
-    \column{0.48\textwidth}
+    \column{0.44\textwidth}
       \footnotesize
       El F1 supone que ambos errores cuestan igual.
       \begin{itemize}
-        \item Umbral de 0,38 a 0,21: subcobertura de 19\,\% a 10\,\%.
-        \item Filtración de 27\,\% a 36\,\%; F1 de 0,77 a 0,75.
+        \item Umbral de 0,36 a 0,21: subcobertura de 18\,\% a 10\,\%.
+        \item Filtración de 25\,\% a 34\,\%; F1 de 0,78 a 0,76.
       \end{itemize}
   \end{columns}
   \takeaway{Si dejar a un pobre por fuera cuesta más, conviene bajar el umbral.}
-  \fuente{Curva y puntos en los datos apartados (holdout); umbrales calculados con una versión previa del modelo. Fuente: views/tablas/nivel7/etapa15\_curva\_cobertura.csv; views/tablas/escenarios\_politica\_n7.csv.}
+  \fuente{Modelo final (n18). Umbrales elegidos con predicciones sobre datos no vistos (OOF): máximo F1 y cobertura de al menos 90\,\%. Curva y cifras en los datos apartados (holdout); punteada: focalización perfecta. Fuente: views/tablas/nivel7/umbral\_n18\_escenarios.csv, umbral\_n18\_curva\_cobertura.csv.}
   \note{
     \textbf{Qué decir (1 min).} El umbral que maximiza el F1 trata igual los dos errores.
     Pero un gobierno puede pensar que dejar por fuera a una familia pobre es peor que
     darle el subsidio a una familia que está apenas encima de la línea. Si es así, puede
-    bajar el umbral: la subcobertura se reduce a la mitad, de 19 a 10\,\%, a cambio de
-    unos diez puntos más de filtración. Y como los filtrados están relativamente cerca de
+    bajar el umbral de 0,36 a 0,21: la subcobertura se reduce casi a la mitad, de 18 a
+    10\,\%, a cambio de unos nueve puntos más de filtración, y el F1 baja apenas de 0,78
+    a 0,76. Y como los filtrados están relativamente cerca de
     la línea, ese costo es moderado. La curva muestra que atendiendo al 30\,\% de los hogares ya cubrimos al
     93\,\% de los pobres.\\[3pt]
     \textbf{Pregunta del profesor: ¿qué umbral recomiendan?}
@@ -388,9 +382,9 @@
 
 \begin{frame}{Una encuesta corta ahorra plata, pero deja por fuera a más pobres extremos}
   \begin{columns}[c]
-    \column{0.52\textwidth}
+    \column{0.54\textwidth}
       \includegraphics[width=\linewidth]{frontera_encuesta}
-    \column{0.46\textwidth}
+    \column{0.44\textwidth}
       \footnotesize
       Nuestro modelo necesita el módulo de trabajo de cada persona: largo y caro.
       \begin{itemize}
@@ -400,9 +394,11 @@
       \end{itemize}
   \end{columns}
   \takeaway{Lo que se ahorra en la encuesta lo pagan los más pobres.}
-  \fuente{Logit, datos apartados (holdout). Las 8 preguntas: ocupados, horas, cotizantes, quién quiere trabajar más, arriendo pagado y recibido, dormitorios; elegidas con un algoritmo genético. Fuente: views/tablas/nivel7/frontera\_encuesta\_corta.csv, etapa15\_pesos\_bienestar.csv.}
+  \fuente{Logit, datos apartados; preguntas elegidas con un algoritmo genético. Fuente: views/tablas/nivel7/frontera\_encuesta\_corta.csv, etapa15\_pesos\_bienestar.csv.}
   \note{
     \textbf{Qué decir (1 min).} ¿Se puede usar esto con una encuesta corta y barata?
+    Las 8 preguntas, elegidas con un algoritmo genético, son: ocupados, horas,
+    cotizantes, quién quiere trabajar más, arriendo pagado y recibido, y dormitorios.
     Buscamos el mejor grupo de preguntas para cada tamaño de encuesta. Con 8 preguntas
     (cuántos trabajan, cuántas horas, cuántos cotizan, el arriendo y los dormitorios) el
     F1 baja de 0,78 a 0,66. Lo más grave no es el número, es a quién excluye: la encuesta
@@ -419,21 +415,22 @@
 \begin{frame}{Recomendación: preguntar bien por el trabajo de cada persona}
   \small
   \begin{enumerate}
-    \item \textbf{Medir el trabajo de cada persona}; un LightGBM solo basta.
-    \item \textbf{Umbral según el costo de excluir}, no según el F1.
-    \item \textbf{Poco presupuesto:} encuesta corta como filtro y verificar cerca del umbral.
-    \item \textbf{Vigilar} hogares de 1--2 personas, Manizales y Pereira.
+    \item \textbf{Medir el trabajo de cada persona}; basta un LightGBM.
+    \item \textbf{Umbral según el costo de excluir.}
+    \item \textbf{Poco presupuesto:} encuesta corta y verificar cerca del umbral.
+    \item \textbf{Vigilar} hogares pequeños, Manizales y Pereira.
   \end{enumerate}
-  \takeaway{El valor está en medir bien el ingreso, no en el algoritmo.}
+  \takeaway{Medir bien el ingreso vale más que el algoritmo.}
   \fuente{Encuesta corta: atendiendo al 40\,\% de los hogares cubre al 91\,\% de los pobres. Fuente: views/tablas/nivel7/etapa15\_curva\_cobertura.csv, etapa15\_errores\_subgrupo.csv.}
   \note{
     \textbf{Qué decir (1 min).} Cerramos con lo que le diríamos a una agencia. Primero, la
     inversión que más rinde es preguntar bien por el trabajo de cada persona; con eso, un
     LightGBM solo basta. Segundo, el umbral es una decisión de política: si excluir a un
-    pobre es grave, hay que bajarlo. Tercero, si solo alcanza para una encuesta corta,
+    pobre es grave, hay que bajarlo; el F1 no debe decidirlo. Tercero, si solo alcanza para una encuesta corta,
     usarla como filtro amplio y verificar en campo a los hogares cercanos al umbral, que
-    es donde el modelo duda. Y cuarto, vigilar a los grupos con más subcobertura. No
-    esperen mucho de más modelos: el límite es de información.\\[3pt]
+    es donde el modelo duda. Y cuarto, vigilar a los grupos con más subcobertura: hogares
+    de una o dos personas, Manizales y Pereira. El valor está en medir bien el ingreso, no
+    en el algoritmo: el límite es de información.\\[3pt]
     \textbf{Pregunta del profesor: ¿se pueden verificar en campo las variables clave?}
     \textbf{Respuesta:} En parte: la vivienda y el arriendo se ven en una visita, pero las
     horas y la ocupación son autorreportadas. Por eso proponemos verificar solo a los
@@ -447,26 +444,31 @@
 \appendix
 \diapositivaglosario
 
-\begin{frame}{Apéndice: dieciséis alternativas más chocan con el mismo techo}
-  \begin{columns}[c]
-    \column{0.64\textwidth}
-      \centering\includegraphics[height=5.3cm]{busqueda_techo}
-    \column{0.34\textwidth}
-      \footnotesize
-      Banda amarilla: la diferencia más pequeña que podemos medir ($\pm 0{,}0025$)
-      alrededor del LightGBM base (línea punteada).
-      \begin{itemize}
-        \item Ninguna alternativa supera al LightGBM por fuera de la banda.
-        \item La mezcla final gana $+0{,}0007$ en validación repetida.
-      \end{itemize}
-  \end{columns}
-  \fuente{F1 en los datos apartados (holdout). Fuente: views/tablas/nivel7/ (etapa7\_b, etapa8 a etapa18); banda de etapa16\_fase1\_resumen.csv.}
+\begin{frame}{Apéndice: 16 alternativas más chocan con el mismo techo}
+  \centering\includegraphics[width=\linewidth]{busqueda_techo}
+  \fuente{F1 en datos apartados. Punteada: LightGBM base (0,781); banda: diferencia mínima medible ($\pm 0{,}0025$). Fuente: views/tablas/nivel7/ (etapa7\_b a etapa18).}
   \note{
     Respaldo para ``¿probaron otra cosa?''. Redes neuronales, modelos automáticos,
     CatBoost, efectos por ciudad, vecinos cercanos, variables creadas por computador,
     aprender del test sin etiqueta y un rediseño desde cero: todos quedan dentro o por
     debajo de la banda de ruido.
   }
+\end{frame}
+
+\begin{frame}{Apéndice: cuadruplicar los datos sube el F1 apenas una centésima}
+  \begin{columns}[c]
+    \column{0.60\textwidth}
+      \includegraphics[width=\linewidth]{techo_curva_datos}
+    \column{0.38\textwidth}
+      \footnotesize
+      Entrenamos con 25, 50, 75 y 100\,\% del 80\,\% de train.
+      \begin{itemize}
+        \item De 33 mil a 132 mil hogares: F1 de 0,768 a 0,778.
+        \item La curva se aplana: más datos no rompen el techo.
+      \end{itemize}
+  \end{columns}
+  \fuente{F1 en los datos apartados (holdout) con una versión previa del modelo. Fuente: views/tablas/nivel7/techo\_curva\_aprendizaje.csv.}
+  \note{Respaldo para ``¿y con más datos?'': la ganancia es de una centésima, mucho menos que lo que aportó el ingreso estimado.}
 \end{frame}
 
 \begin{frame}{Apéndice: no hay fuga de información y train se parece al test}

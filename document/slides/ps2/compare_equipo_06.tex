@@ -24,9 +24,9 @@
 %% ============================================================
 \begin{frame}{La pobreza cambia por saltos y combinaciones: terreno de los árboles}
   \begin{columns}[c]
-    \column{0.60\textwidth}
+    \column{0.62\textwidth}
       \includegraphics[width=\linewidth]{correlatos_pobreza}
-    \column{0.38\textwidth}
+    \column{0.36\textwidth}
       \footnotesize
       Un modelo lineal suma efectos; un árbol corta y combina.
       \begin{itemize}
@@ -37,7 +37,7 @@
       \end{itemize}
   \end{columns}
   \takeaway{Esperamos que los árboles ganen.}
-  \fuente{Tasa de pobreza en los 164.960 hogares de train. Fuente: scripts/13\_figuras\_presentacion.R; views/tablas/nivel7/etapa15\_ebm\_importancia.csv.}
+  \fuente{Tasa de pobreza en los 164.960 hogares de train; promedio: 20\,\%. Fuente: scripts/13\_figuras\_presentacion.R; views/tablas/nivel7/etapa15\_ebm\_importancia.csv.}
   \note{
     \textbf{Qué decir (1 min).} Queremos encontrar hogares pobres sin ver su ingreso, así
     que lo reconstruimos con lo que sí se ve. Antes de comparar algoritmos, miremos qué
@@ -121,7 +121,7 @@
       \end{itemize}
   \end{columns}
   \takeaway{Los más cercanos al boosting: Random Forest y Elastic Net.}
-  \fuente{48 variables, 32.993 hogares apartados (holdout). En Kaggle subimos 35 predicciones con los 7 algoritmos. Fuente: views/tablas/comparacion\_algoritmos.csv; stores/submissions/bitacora\_kaggle.csv.}
+  \fuente{48 variables, 32.993 hogares apartados (holdout). En Kaggle subimos 18 predicciones. Fuente: views/tablas/comparacion\_algoritmos.csv; stores/submissions/bitacora\_kaggle.csv.}
   \note{
     \textbf{Qué decir (1 min).} Estos son los siete algoritmos del curso con las mismas
     variables. Como esperábamos, el boosting queda primero y los modelos lineales y Naive
@@ -265,20 +265,9 @@
 \end{frame}
 
 \begin{frame}{Cambiar las variables vale nueve veces más que cambiar el algoritmo}
-  \begin{columns}[c]
-    \column{0.66\textwidth}
-      \includegraphics[width=\linewidth]{escalera_completa}
-    \column{0.32\textwidth}
-      \small
-      \textbf{Suma de los saltos}
-      \begin{itemize}
-        \item \textcolor{andesaccent}{\textbf{Mejores variables}}: $+0{,}29$.
-        \item \textbf{Mejor algoritmo}: $+0{,}03$.
-      \end{itemize}
-      Lo que más aportó: el ingreso estimado de cada persona.
-  \end{columns}
-  \takeaway{Saber cuánto gana cada persona vale más que el algoritmo.}
-  \fuente{F1 en los datos apartados (holdout), un paso a la vez. Fuente: views/tablas/leaderboard\_interno.csv y nivel7/ (ablacion\_etapa1, resumen\_etapa2, etapa6\_ablacion, etapa7\_a, etapa18\_resumen).}
+  \centering\includegraphics[width=\linewidth]{escalera_completa}
+  \takeaway{Variables: $+0{,}29$; algoritmo: $+0{,}03$. Saber cuánto gana cada persona vale más.}
+  \fuente{F1 en datos apartados, un paso a la vez. Fuente: views/tablas/leaderboard\_interno.csv y views/tablas/nivel7/.}
   \note{
     \textbf{Qué decir (1 min).} Pongamos la comparación en perspectiva. Toda la diferencia
     entre algoritmos que acabamos de ver suma 0,03 de F1. Construir buenas variables, y
@@ -369,17 +358,19 @@
 \begin{frame}{¿El modelo con más puntaje en Kaggle? No necesariamente}
   \small
   \begin{enumerate}
-    \item \textbf{Elegir por el costo de cada error}, no por el F1.
-    \item \textbf{LightGBM solo, no la mezcla}: rinde igual y es más simple.
-    \item \textbf{Si exige transparencia}: boosting interpretable (0,777) o Logit (0,718).
-    \item \textbf{Si solo hay encuesta corta}: umbral más bajo y verificación en campo.
+    \item \textbf{Elegir por el costo de cada error.}
+    \item \textbf{LightGBM solo}: rinde igual que la mezcla.
+    \item \textbf{Transparencia}: boosting interpretable (0,777) o Logit (0,718).
+    \item \textbf{Encuesta corta}: umbral más bajo y verificación en campo.
   \end{enumerate}
-  \takeaway{La elección depende de qué se puede medir y de cuánto cuesta excluir.}
+  \takeaway{Decide qué se puede medir y cuánto cuesta excluir.}
   \fuente{Fuente: views/tablas/nivel7/etapa15\_resumen.csv; views/tablas/leaderboard\_interno.csv; views/tablas/nivel7/etapa18\_resumen.csv.}
   \note{
     \textbf{Qué decir (1 min).} Si una agencia nos pidiera un modelo, no le daríamos
     necesariamente el de mayor puntaje en Kaggle. La mezcla le gana al LightGBM solo por
-    menos de una milésima, así que recomendamos el más simple. El F1 supone que excluir y
+    menos de una milésima, así que recomendamos el más simple, que además es más fácil de
+    mantener. La elección depende de qué se puede medir y de cuánto cuesta excluir, no del
+    puntaje. El F1 supone que excluir y
     filtrar cuestan igual, y una agencia puede pensar distinto; entonces el umbral se
     elige por el costo de cada error. Si la agencia necesita explicar cada decisión, un
     boosting interpretable pierde medio punto. Y si solo puede pagar una encuesta corta,

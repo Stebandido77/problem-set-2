@@ -1,8 +1,9 @@
 # ==============================================================================
 # 13_figuras_presentacion.R
 # Figuras nuevas para los decks best y compare (document/slides/). Todas las
-# cifras salen de las tablas de views/tablas/ y de la base de hogares de train;
-# no se entrena nada. Colores de la plantilla Beamer de Uniandes.
+# cifras salen de las tablas de views/tablas/, de la base de hogares de train y
+# de predicciones ya guardadas; no se entrena nada. Colores de la plantilla Beamer
+# de Uniandes. Cada figura se guarda al tamaño exacto en que se incrusta.
 # ==============================================================================
 
 source(here::here("scripts", "00_configuracion.R"))
@@ -19,37 +20,53 @@ COLOR_GRIS <- "#4D4D4D"
 COLOR_GRIS_MEDIO <- "#B3B3B3"
 COLOR_ROJO <- "#B3261E"
 
-# Tema de las slides: el del proyecto con letra más grande, porque las figuras
-# se ven a media pantalla.
-# Argumentos: tamano_base = tamaño de letra base.
+# Ancho de texto de la plantilla Beamer 16:9 a 11 pt (\textwidth = 398,34 pt), en
+# pulgadas. Las figuras se guardan a la fracción de ese ancho que ocupan en la
+# slide, así la letra que se ve proyectada es la que se define aquí.
+ANCHO_TEXTO_SLIDE <- 398.34 / 72.27
+TAMANO_BASE_SLIDES <- 16
+# Ejes, leyendas y etiquetas van al 80 % de la base (proporción de theme_minimal):
+# 12,8 pt, más que el texto de la slide (9-11 pt). En mm para geom_text.
+TAMANO_ETIQUETA <- 0.8 * TAMANO_BASE_SLIDES / .pt
+# Calibri es más angosta que Arial y deja más espacio a los datos; si no está
+# instalada se usa la sans del sistema.
+FUENTE_SLIDES <- if ("Calibri" %in% systemfonts::system_fonts()$family) "Calibri" else "sans"
+update_geom_defaults("text", list(family = FUENTE_SLIDES, size = TAMANO_ETIQUETA))
+
+# Tema de las slides: el del proyecto con base de 16 pt, fuente compacta y sin
+# recortar los títulos de panel.
+# Argumentos: tamano_base = tamaño de letra base en puntos.
 # Devuelve: tema de ggplot2.
-tema_slides <- function(tamano_base = 14) {
+tema_slides <- function(tamano_base = TAMANO_BASE_SLIDES) {
   tema_proyecto(tamano_base) +
     theme(
-      plot.title = element_text(face = "bold", size = rel(1.05)),
-      plot.subtitle = element_text(colour = COLOR_GRIS),
+      text = element_text(family = FUENTE_SLIDES),
+      plot.title = element_text(face = "bold", size = rel(0.85)),
       axis.title = element_text(colour = COLOR_GRIS),
+      axis.text = element_text(colour = COLOR_NEGRO),
+      strip.text = element_text(face = "bold", hjust = 0, size = rel(0.8)),
+      strip.clip = "off",
       panel.grid.major.y = element_blank(),
-      strip.text = element_text(face = "bold", hjust = 0)
+      plot.margin = margin(3, 8, 3, 3)
     )
 }
 
 # Formatos con coma decimal, como en el texto de las slides.
 formato_f1 <- function(x) formatC(x, format = "f", digits = 3, decimal.mark = ",")
-formato_pct <- scales::label_percent(accuracy = 1, decimal.mark = ",")
-formato_pct1 <- scales::label_percent(accuracy = 0.1, decimal.mark = ",")
+formato_pct <- scales::label_percent(accuracy = 1, decimal.mark = ",", suffix = " %")
 formato_num <- scales::label_number(decimal.mark = ",")
 
-# Guarda una figura en document/slides/figuras en PDF (para LaTeX) y PNG.
-# Argumentos: grafico, nombre (sin extensión), ancho y alto en pulgadas,
-#   escala (< 1 agranda el texto frente al lienzo; las figuras se ven chicas en
-#   una columna de la slide).
+# Guarda una figura en document/slides/figuras en PDF (para LaTeX) y PNG, al tamaño
+# exacto en que se incrusta (sin escalar).
+# Argumentos: grafico, nombre (sin extensión), fraccion = fracción del ancho de
+#   texto que ocupa en la slide (la misma del \column), alto = alto en pulgadas.
 # Devuelve: el gráfico, invisible.
-guardar_figura_slides <- function(grafico, nombre, ancho = 8, alto = 4.2, escala = 0.68) {
+guardar_figura_slides <- function(grafico, nombre, fraccion = 1, alto = 2) {
+  ancho <- fraccion * ANCHO_TEXTO_SLIDE
   ggsave(file.path(RUTA_FIGURAS_SLIDES, paste0(nombre, ".pdf")), grafico,
-         width = ancho, height = alto, scale = escala, device = cairo_pdf)
+         width = ancho, height = alto, device = cairo_pdf)
   ggsave(file.path(RUTA_FIGURAS_SLIDES, paste0(nombre, ".png")), grafico,
-         width = ancho, height = alto, scale = escala, dpi = 300, bg = "white")
+         width = ancho, height = alto, dpi = 300, bg = "white")
   invisible(grafico)
 }
 
@@ -67,7 +84,6 @@ leer_f1 <- function(archivo, candidato, columna_candidato = "candidato",
 
 # ---- 1. Correlatos de la pobreza en train --------------------------------------
 train <- readRDS(file.path(RUTA_PROCESADOS, "train_hogar.rds"))
-tasa_media <- mean(train$pobre == "pobre")
 
 # Tasa de pobreza por categoría de una variable.
 # Argumentos: datos, variable (columna sin comillas), panel (título del panel).
@@ -80,68 +96,44 @@ tasa_por <- function(datos, variable, panel) {
     mutate(panel = panel)
 }
 
+# Solo los dos paneles del título de la slide (trabajo y dependencia); la
+# educación del jefe y la vivienda se citan en el texto.
 correlatos <- bind_rows(
-  train |>
-    filter(tenencia != "otra") |>
-    mutate(tenencia = fct_recode(
-      factor(tenencia), "Propia\npagada" = "propia_pagada",
-      "Propia\npagando" = "propia_pagando", "Arriendo" = "arriendo",
-      "Usufructo" = "usufructo", "Sin\ntítulo" = "posesion_sin_titulo"
-    )) |>
-    tasa_por(tenencia, "Tenencia de la vivienda"),
   train |>
     mutate(tramo = cut(prop_ocupados, c(-Inf, 0, 0.34, 0.5, 0.67, Inf),
                        labels = c("0", "≤ 1/3", "1/3–1/2", "1/2–2/3", "> 2/3"))) |>
-    tasa_por(tramo, "Proporción de ocupados en el hogar"),
+    tasa_por(tramo, "Ocupados\npor persona"),
   train |>
     mutate(tramo = cut(tasa_dependencia, c(-Inf, 0, 0.5, 1, 2, Inf),
                        labels = c("0", "≤ 0,5", "0,5–1", "1–2", "> 2"))) |>
-    tasa_por(tramo, "Dependientes por adulto en edad de trabajar"),
-  train |>
-    filter(jefe_educ %in% c("ninguno", "primaria", "secundaria", "media", "superior")) |>
-    mutate(jefe_educ = factor(str_to_sentence(as.character(jefe_educ)),
-                              levels = c("Ninguno", "Primaria", "Secundaria", "Media", "Superior"))) |>
-    tasa_por(jefe_educ, "Educación del jefe de hogar")
+    tasa_por(tramo, "Dependientes\npor adulto")
 ) |>
-  mutate(panel = factor(panel, levels = unique(panel)))
+  mutate(panel = factor(panel, levels = unique(panel)),
+         categoria = fct_rev(fct_inorder(as.character(categoria))))
 
-# El orden de las categorías se fija con un factor por panel
-correlatos <- correlatos |>
-  group_by(panel) |>
-  mutate(orden = row_number()) |>
-  ungroup() |>
-  mutate(etiqueta = fct_reorder(paste(panel, categoria, sep = "__"), as.numeric(panel) * 10 + orden))
-
-grafico_correlatos <- ggplot(correlatos, aes(etiqueta, tasa)) +
+# El promedio (20 %) va en el pie de la slide: una línea aquí cruzaría las etiquetas.
+grafico_correlatos <- ggplot(correlatos, aes(tasa, categoria)) +
   geom_col(fill = COLOR_ACENTO, width = 0.7) +
-  geom_hline(yintercept = tasa_media, linetype = "dashed", colour = COLOR_GRIS) +
-  geom_text(aes(label = formato_pct(tasa)), vjust = -0.3,
-            size = 3.6, colour = COLOR_NEGRO) +
-  facet_wrap(~panel, scales = "free_x", nrow = 2) +
-  scale_x_discrete(labels = function(x) str_remove(x, "^.*__")) +
-  scale_y_continuous(labels = formato_pct, expand = expansion(mult = c(0, 0.15))) +
-  labs(
-    title = NULL,
-    subtitle = sprintf("Tasa de pobreza en train (164.960 hogares). Línea punteada: promedio (%s)",
-                       formato_pct1(tasa_media)),
-    x = NULL, y = "Tasa de pobreza"
-  ) +
-  tema_slides(13) +
-  theme(panel.grid.major.x = element_blank(), panel.grid.major.y = element_line(colour = "grey92"))
-guardar_figura_slides(grafico_correlatos, "correlatos_pobreza", ancho = 9.5, alto = 5.6, escala = 0.85)
+  geom_text(aes(label = formato_pct(tasa)), hjust = -0.1, colour = COLOR_NEGRO) +
+  facet_wrap(~panel, scales = "free_y", nrow = 1) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.35))) +
+  coord_cartesian(clip = "off") +
+  labs(x = NULL, y = NULL) +
+  tema_slides() +
+  theme(axis.text.x = element_blank(), panel.grid = element_blank(),
+        panel.spacing.x = unit(16, "pt"), plot.margin = margin(3, 22, 3, 3))
+guardar_figura_slides(grafico_correlatos, "correlatos_pobreza", fraccion = 0.62, alto = 2.05)
 
-# ---- 2. Escalera completa: cambios de variables vs. de algoritmo -----------------
+# ---- 2. Escalera: cambios de variables vs. de algoritmo ---------------------------
+# Siete peldaños: el ingreso estimado (laboral, total y por fuente) va en un solo
+# paso y el XGBoost se omite; las sumas por tipo de cambio no se alteran.
 escalera <- tribble(
   ~paso, ~tipo, ~f1,
-  "Declarar pobres a todos", "Piso", leer_f1("leaderboard_interno.csv", "n1_todos_pobres", "Candidato", "F1 holdout"),
-  "Logit con 5 variables de la teoría", "Piso", leer_f1("leaderboard_interno.csv", "n2_logit", "Candidato", "F1 holdout"),
-  "Logit + 48 variables desde personas", "Variables", leer_f1("leaderboard_interno.csv", "n3_logit", "Candidato", "F1 holdout"),
-  "Boosting (XGBoost), mismas 48", "Algoritmo", leer_f1("leaderboard_interno.csv", "n4_xgboost", "Candidato", "F1 holdout"),
-  "Boosting (LightGBM) afinado", "Algoritmo", leer_f1("leaderboard_interno.csv", "n6_lightgbm", "Candidato", "F1 holdout"),
+  "Logit, 5 variables de la teoría", "Piso", leer_f1("leaderboard_interno.csv", "n2_logit", "Candidato", "F1 holdout"),
+  "Logit, 48 variables de personas", "Variables", leer_f1("leaderboard_interno.csv", "n3_logit", "Candidato", "F1 holdout"),
+  "Boosting afinado, mismas 48", "Algoritmo", leer_f1("leaderboard_interno.csv", "n6_lightgbm", "Candidato", "F1 holdout"),
   "+ trabajo y composición del hogar", "Variables", leer_f1("nivel7/ablacion_etapa1.csv", "n7_a1_laborales"),
-  "+ ingreso laboral predicho por persona", "Variables", leer_f1("nivel7/ablacion_etapa1.csv", "n7_a4_aux_personas"),
-  "+ ingreso total predicho por persona", "Variables", leer_f1("nivel7/resumen_etapa2.csv", "n7_n6param_a4_total_bag5"),
-  "+ ingreso predicho por fuente", "Variables", leer_f1("nivel7/etapa6_ablacion.csv", "n7_v3_fuentes_bag5"),
+  "+ ingreso estimado por persona", "Variables", leer_f1("nivel7/etapa6_ablacion.csv", "n7_v3_fuentes_bag5"),
   "+ resúmenes por rol en el hogar", "Variables", leer_f1("nivel7/etapa7_a.csv", "n7_a_agregados_bag5"),
   "Mezcla final", "Algoritmo", leer_f1("nivel7/etapa18_resumen.csv", "n18_mezcla_n13_limpio")
 ) |>
@@ -159,86 +151,82 @@ print(aporte)
 write_csv(aporte, file.path(RUTA_FIGURAS_SLIDES, "aporte_variables_algoritmo.csv"))
 
 grafico_escalera <- ggplot(escalera, aes(f1, paso, colour = tipo)) +
-  geom_segment(aes(x = 0.3, xend = f1, yend = paso), linewidth = 0.6, alpha = 0.35) +
+  geom_segment(aes(x = 0.4, xend = f1, yend = paso), linewidth = 0.8, alpha = 0.35) +
   geom_point(size = 3.6) +
-  geom_text(aes(label = formato_f1(f1)), hjust = -0.35, size = 3.8, colour = COLOR_NEGRO) +
+  geom_text(aes(label = formato_f1(f1)), hjust = -0.35, colour = COLOR_NEGRO) +
   scale_colour_manual(
     values = c("Piso" = COLOR_GRIS_MEDIO, "Variables" = COLOR_ACENTO, "Algoritmo" = COLOR_NEGRO),
-    labels = c("Punto de partida", "Cambia las variables", "Cambia el algoritmo"), name = NULL
+    labels = c("Partida", "Cambian las variables", "Cambia el algoritmo"), name = NULL
   ) +
-  scale_x_continuous(limits = c(0.3, 0.86), breaks = seq(0.3, 0.8, 0.1), labels = formato_num) +
-  labs(x = "F1 en datos que el modelo no vio", y = NULL, colour = NULL) +
-  tema_slides(13) +
-  theme(panel.grid.major.y = element_blank(), legend.position = "top", legend.location = "plot",
-        legend.background = element_rect(fill = "white", colour = NA))
-guardar_figura_slides(grafico_escalera, "escalera_completa", ancho = 9, alto = 4.8, escala = 0.7)
+  scale_x_continuous(limits = c(0.4, 0.83)) +
+  coord_cartesian(clip = "off") +
+  labs(x = NULL, y = NULL) +
+  tema_slides() +
+  theme(axis.text.x = element_blank(), panel.grid = element_blank(),
+        legend.position = "top", legend.location = "plot", legend.justification = "left",
+        legend.margin = margin(0, 0, 0, 0), legend.box.spacing = unit(2, "pt"))
+guardar_figura_slides(grafico_escalera, "escalera_completa", fraccion = 1, alto = 2.1)
 
 # ---- 3. Por qué hay techo -----------------------------------------------------------
 oraculo <- read_csv(file.path(RUTA_NIVEL7, "techo_oraculo.csv"), show_col_types = FALSE) |>
   mutate(escenario = recode(
     escenario,
-    "auxiliares predichos (modelo final)" = "Ingreso\npredicho\n(lo que\nusamos)",
-    "laboral observado" = "Ingreso\nlaboral\nreal",
-    "total observado" = "Ingreso\ntotal\nreal",
-    "laboral y total observados" = "Laboral y\ntotal\nreales"
+    "auxiliares predichos (modelo final)" = "Estimado",
+    "laboral observado" = "Laboral",
+    "total observado" = "Total",
+    "laboral y total observados" = "Ambos"
   ), escenario = fct_inorder(escenario))
 
 grafico_oraculo <- ggplot(oraculo, aes(escenario, f1_holdout,
                                        fill = escenario == first(levels(escenario)))) +
-  geom_col(width = 0.65) +
-  geom_text(aes(label = formato_f1(f1_holdout)), vjust = -0.3, size = 3.8) +
+  geom_col(width = 0.7) +
+  geom_text(aes(label = formato_f1(f1_holdout)), vjust = -0.3) +
   scale_fill_manual(values = c(`TRUE` = COLOR_ACENTO, `FALSE` = COLOR_GRIS_MEDIO), guide = "none") +
-  scale_y_continuous(labels = formato_num) +
-  coord_cartesian(ylim = c(0.6, 0.93)) +
-  labs(title = "A. Si viéramos el ingreso", x = NULL, y = "F1") +
-  tema_slides(12) +
-  theme(panel.grid.major.x = element_blank(), axis.text.x = element_text(size = 8.5, lineheight = 0.9))
+  coord_cartesian(ylim = c(0.6, 0.96)) +
+  labs(title = "A. Si el modelo viera el ingreso real", x = NULL, y = NULL) +
+  tema_slides() +
+  theme(axis.text.y = element_blank(), panel.grid = element_blank())
 
 bandas <- read_csv(file.path(RUTA_NIVEL7, "techo_bandas.csv"), show_col_types = FALSE) |>
   filter(banda %in% c("dentro [0.8; 1.2]", "fuera [0.8; 1.2]")) |>
-  mutate(
-    share_pobres = pobres / sum(pobres),
-    banda = recode(banda, "dentro [0.8; 1.2]" = "Ingreso a ±20 %\nde la línea",
-                   "fuera [0.8; 1.2]" = "Resto de\nhogares"),
-    etiqueta = paste0(formato_f1(f1), "\n(", formato_pct(share_pobres), " de\nlos pobres)")
-  )
+  mutate(banda = recode(banda, "dentro [0.8; 1.2]" = "± 20 % de\nla línea",
+                        "fuera [0.8; 1.2]" = "Resto"))
 
 grafico_bandas <- ggplot(bandas, aes(banda, f1, fill = banda)) +
   geom_col(width = 0.6) +
-  geom_text(aes(label = etiqueta), vjust = -0.15, size = 3.4, lineheight = 0.9) +
+  geom_text(aes(label = formato_f1(f1)), vjust = -0.3) +
   scale_fill_manual(values = c(COLOR_ROJO, COLOR_GRIS_MEDIO), guide = "none") +
-  scale_y_continuous(labels = formato_num) +
-  coord_cartesian(ylim = c(0.5, 1)) +
-  labs(title = "B. Cerca de la línea", x = NULL, y = "F1") +
-  tema_slides(12) +
-  theme(panel.grid.major.x = element_blank(), axis.text.x = element_text(size = 8.5, lineheight = 0.9))
+  coord_cartesian(ylim = c(0.5, 0.93)) +
+  labs(title = "B. Hogares cerca de la línea", x = NULL, y = NULL) +
+  tema_slides() +
+  theme(axis.text.y = element_blank(), panel.grid = element_blank())
 
+library(patchwork)
+grafico_techo <- grafico_oraculo + plot_spacer() + grafico_bandas +
+  plot_layout(widths = c(1.4, 0.12, 1))
+guardar_figura_slides(grafico_techo, "techo_dos_paneles", fraccion = 1, alto = 1.85)
+
+# Panel C (más datos), al apéndice del deck best
 curva <- read_csv(file.path(RUTA_NIVEL7, "techo_curva_aprendizaje.csv"), show_col_types = FALSE)
 grafico_curva <- ggplot(curva, aes(hogares_entrenamiento / 1000, f1_holdout)) +
-  geom_line(colour = COLOR_ACENTO, linewidth = 1) +
-  geom_point(colour = COLOR_ACENTO, size = 2.8) +
-  geom_text(aes(label = formato_f1(f1_holdout)), vjust = -0.9, size = 3.4) +
-  scale_y_continuous(labels = formato_num) +
-  coord_cartesian(ylim = c(0.74, 0.80), xlim = c(25, 140)) +
+  geom_line(colour = COLOR_ACENTO, linewidth = 1.2) +
+  geom_point(colour = COLOR_ACENTO, size = 3.2) +
+  geom_text(aes(label = formato_f1(f1_holdout)), vjust = -0.9) +
+  scale_y_continuous(labels = formato_num, breaks = c(0.75, 0.77, 0.79)) +
+  coord_cartesian(ylim = c(0.75, 0.79), xlim = c(25, 140)) +
   scale_x_continuous(breaks = round(curva$hogares_entrenamiento / 1000)) +
-  labs(title = "C. Con más datos", x = "Miles de hogares", y = "F1") +
-  tema_slides(12) +
+  labs(x = "Miles de hogares", y = "F1") +
+  tema_slides() +
   theme(panel.grid.major.y = element_line(colour = "grey92"))
+guardar_figura_slides(grafico_curva, "techo_curva_datos", fraccion = 0.6, alto = 2.3)
 
-if (requireNamespace("patchwork", quietly = TRUE)) {
-  library(patchwork)
-  grafico_techo <- grafico_oraculo + grafico_bandas + grafico_curva +
-    plot_layout(widths = c(1.35, 0.9, 1))
-  guardar_figura_slides(grafico_techo, "techo_tres_paneles", ancho = 11, alto = 4.4, escala = 0.72)
-}
-
-# ---- 4. Importancia de variables del modelo base (n7_a, 76 % de la mezcla) ---------
+# ---- 4. Peso de cada grupo de variables en el modelo base (n7_a, 76 % de la mezcla) --
 importancia <- read_csv(file.path(RUTA_NIVEL7, "etapa7_a_importancia.csv"), show_col_types = FALSE) |>
   mutate(familia = case_when(
-    str_detect(variable, "ingreso_pred|laboral_pc|pensiones_pc|_pc_lp_v3|_pc_v3") ~ "Ingreso predicho por persona",
+    str_detect(variable, "ingreso_pred|laboral_pc|pensiones_pc|_pc_lp_v3|_pc_v3") ~ "Ingreso estimado",
     str_detect(variable, "arriendo|tenencia|vivienda|cuartos|dormitorios") ~ "Vivienda y arriendo",
-    str_detect(variable, "^ag_") ~ "Agregados por rol",
-    TRUE ~ "Demografía, trabajo y ubicación"
+    str_detect(variable, "^ag_") ~ "Resúmenes por rol",
+    TRUE ~ "Resto"
   ))
 
 participacion_familias <- importancia |>
@@ -247,36 +235,21 @@ participacion_familias <- importancia |>
   arrange(desc(share_gain))
 print(participacion_familias)
 write_csv(participacion_familias, file.path(RUTA_FIGURAS_SLIDES, "importancia_familias.csv"))
+print(slice_max(importancia, share_gain, n = 5))
 
-nombres_legibles <- c(
-  log_ingreso_pred_pc_lp_v3 = "Ingreso per cápita predicho / línea (fuentes)",
-  log_ingreso_pred_pc_lp_total = "Ingreso per cápita predicho / línea (total)",
-  log_ingreso_pred_pc_v3 = "Ingreso per cápita predicho (fuentes)",
-  arriendo_por_persona_lp = "Arriendo por persona / línea",
-  tenencia_arriendo = "Vive en arriendo",
-  log_arriendo_relativo = "Arriendo relativo a su ciudad",
-  log_ingreso_pred_pc_total = "Ingreso per cápita predicho (total)",
-  tenencia_propia_pagada = "Vivienda propia pagada",
-  log_costo_vivienda_relativo = "Costo de vivienda relativo",
-  tenencia_usufructo = "Vivienda en usufructo"
-)
-
-top_importancia <- importancia |>
-  slice_max(share_gain, n = 10) |>
-  mutate(nombre = coalesce(nombres_legibles[variable], variable),
-         nombre = fct_reorder(nombre, share_gain))
-
-grafico_importancia <- ggplot(top_importancia, aes(share_gain, nombre, fill = familia)) +
+grafico_importancia <- participacion_familias |>
+  mutate(familia = fct_reorder(familia, share_gain),
+         destacada = familia == "Ingreso estimado") |>
+  ggplot(aes(share_gain, familia, fill = destacada)) +
   geom_col(width = 0.7) +
-  geom_text(aes(label = formato_pct1(share_gain)), hjust = -0.15, size = 3.6) +
-  scale_fill_manual(values = c("Ingreso predicho por persona" = COLOR_ACENTO,
-                               "Vivienda y arriendo" = COLOR_GRIS)) +
-  scale_x_continuous(labels = formato_pct, expand = expansion(mult = c(0, 0.22))) +
-  labs(x = "Peso en las decisiones del modelo (% de la ganancia)", y = NULL, fill = NULL) +
-  tema_slides(13) +
-  theme(legend.position = c(0.75, 0.3), legend.direction = "vertical",
-        legend.background = element_rect(fill = "white", colour = NA))
-guardar_figura_slides(grafico_importancia, "importancia_n7_a", ancho = 9, alto = 4.6, escala = 0.8)
+  geom_text(aes(label = formato_pct(share_gain)), hjust = -0.15) +
+  scale_fill_manual(values = c(`TRUE` = COLOR_ACENTO, `FALSE` = COLOR_GRIS_MEDIO), guide = "none") +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
+  coord_cartesian(clip = "off") +
+  labs(x = NULL, y = NULL) +
+  tema_slides() +
+  theme(axis.text.x = element_blank(), panel.grid = element_blank())
+guardar_figura_slides(grafico_importancia, "importancia_n7_a", fraccion = 0.56, alto = 1.8)
 
 # ---- 5. Búsqueda del techo: todos los enfoques contra la base ----------------------
 resumen16 <- read_csv(file.path(RUTA_NIVEL7, "etapa16_fase1_resumen.csv"), show_col_types = FALSE)
@@ -284,69 +257,73 @@ base_holdout <- resumen16$f1_holdout[resumen16$candidato == "n7_a_agregados_bag5
 emd_holdout <- resumen16$mde_holdout[resumen16$candidato == "n13_mezcla_final"]
 
 enfoques <- tribble(
-  ~enfoque, ~f1,
-  "Rediseño desde cero", leer_f1("nivel7/etapa18_resumen.csv", "n18_limpio"),
-  "Predecir rangos de ingreso", leer_f1("nivel7/etapa12_resumen.csv", "n12_cuantiles_directo"),
-  "Red sobre las personas del hogar", leer_f1("nivel7/etapa12_resumen.csv", "n12_conjuntos_bag3"),
-  "Variables elegidas por algoritmo genético", leer_f1("nivel7/etapa9_candidatos.csv", "n9_ga_bagging"),
-  "Modelo automático, base cruda", leer_f1("nivel7/etapa12_resumen.csv", "n12_autogluon_a"),
-  "Red neuronal (TabM)", leer_f1("nivel7/etapa10_candidatos.csv", "n10_tabm_bag3"),
-  "Árboles muy aleatorios", leer_f1("nivel7/etapa7_b.csv", "n7_b2_extratrees_abc_agr"),
-  "Efecto propio de cada ciudad", leer_f1("nivel7/etapa12_resumen.csv", "n12_gpboost_dominio_1s"),
-  "Red neuronal (RealMLP)", leer_f1("nivel7/etapa10_candidatos.csv", "n10_realmlp_bag5"),
-  "Boosting interpretable (EBM)", leer_f1("nivel7/etapa15_resumen.csv", "n15_ebm_top60_s0"),
-  "Modelo automático, nuestras variables", leer_f1("nivel7/etapa12_resumen.csv", "n12_autogluon_b"),
-  "Modelo de ingreso reafinado", leer_f1("nivel7/etapa8_candidatos.csv", "n8_aux_tuneados_bag5"),
-  "Variables inventadas por computador", leer_f1("nivel7/etapa14_resumen.csv", "n14_a_gp_lgb_s0"),
-  "CatBoost", leer_f1("nivel7/etapa7_b.csv", "n7_b3_catboost_agr"),
-  "Vecinos cercanos", leer_f1("nivel7/etapa16_fase1_resumen.csv", "A + KNN (bag5)"),
-  "Aprender también del test", leer_f1("nivel7/etapa15_resumen.csv", "n15_pseudo_s0"),
-  "Mezcla final", leer_f1("nivel7/etapa18_resumen.csv", "n18_mezcla_n13_limpio")
+  ~enfoque, ~grupo, ~f1,
+  "Rediseño desde cero", "Otras variables o datos", leer_f1("nivel7/etapa18_resumen.csv", "n18_limpio"),
+  "Rangos de ingreso", "Otras variables o datos", leer_f1("nivel7/etapa12_resumen.csv", "n12_cuantiles_directo"),
+  "Red por personas", "Otros algoritmos", leer_f1("nivel7/etapa12_resumen.csv", "n12_conjuntos_bag3"),
+  "Algoritmo genético", "Otras variables o datos", leer_f1("nivel7/etapa9_candidatos.csv", "n9_ga_bagging"),
+  "AutoML, base cruda", "Otras variables o datos", leer_f1("nivel7/etapa12_resumen.csv", "n12_autogluon_a"),
+  "Red TabM", "Otros algoritmos", leer_f1("nivel7/etapa10_candidatos.csv", "n10_tabm_bag3"),
+  "Árboles aleatorios", "Otros algoritmos", leer_f1("nivel7/etapa7_b.csv", "n7_b2_extratrees_abc_agr"),
+  "Efecto por ciudad", "Otros algoritmos", leer_f1("nivel7/etapa12_resumen.csv", "n12_gpboost_dominio_1s"),
+  "Red RealMLP", "Otros algoritmos", leer_f1("nivel7/etapa10_candidatos.csv", "n10_realmlp_bag5"),
+  "Boosting EBM", "Otros algoritmos", leer_f1("nivel7/etapa15_resumen.csv", "n15_ebm_top60_s0"),
+  "AutoML, nuestras", "Otros algoritmos", leer_f1("nivel7/etapa12_resumen.csv", "n12_autogluon_b"),
+  "Ingreso reafinado", "Otras variables o datos", leer_f1("nivel7/etapa8_candidatos.csv", "n8_aux_tuneados_bag5"),
+  "Variables automáticas", "Otras variables o datos", leer_f1("nivel7/etapa14_resumen.csv", "n14_a_gp_lgb_s0"),
+  "CatBoost", "Otros algoritmos", leer_f1("nivel7/etapa7_b.csv", "n7_b3_catboost_agr"),
+  "Vecinos cercanos", "Otros algoritmos", leer_f1("nivel7/etapa16_fase1_resumen.csv", "A + KNN (bag5)"),
+  "Aprender del test", "Otras variables o datos", leer_f1("nivel7/etapa15_resumen.csv", "n15_pseudo_s0")
 ) |>
-  mutate(enfoque = fct_reorder(enfoque, f1), es_final = enfoque == "Mezcla final")
+  mutate(enfoque = fct_reorder(enfoque, f1),
+         grupo = factor(grupo, levels = c("Otros algoritmos", "Otras variables o datos"),
+                        labels = c("Otro algoritmo", "Otras variables")))
 
 # Banda amarilla: LightGBM base ± efecto mínimo detectable en holdout (se explica en la slide)
-grafico_enfoques <- ggplot(enfoques, aes(f1, enfoque, colour = es_final)) +
+grafico_enfoques <- ggplot(enfoques, aes(f1, enfoque)) +
   annotate("rect", xmin = base_holdout - emd_holdout, xmax = base_holdout + emd_holdout,
-           ymin = -Inf, ymax = Inf, fill = COLOR_AMARILLO, alpha = 0.3) +
+           ymin = -Inf, ymax = Inf, fill = COLOR_AMARILLO, alpha = 0.35) +
   geom_vline(xintercept = base_holdout, colour = COLOR_GRIS, linetype = "dashed") +
-  geom_point(size = 3) +
-  geom_text(aes(label = formato_f1(f1)), hjust = 1.35, size = 3.4, colour = COLOR_GRIS) +
-  scale_colour_manual(values = c(`FALSE` = COLOR_NEGRO, `TRUE` = COLOR_ACENTO), guide = "none") +
-  scale_x_continuous(limits = c(0.742, 0.785), breaks = seq(0.75, 0.78, 0.01), labels = formato_num) +
-  labs(x = "F1 en datos no vistos", y = NULL) +
-  tema_slides(13)
-guardar_figura_slides(grafico_enfoques, "busqueda_techo", ancho = 7.6, alto = 4.6, escala = 0.66)
+  geom_point(size = 3.2, colour = COLOR_NEGRO) +
+  facet_wrap(~grupo, scales = "free_y") +
+  scale_x_continuous(limits = c(0.745, 0.786), breaks = c(0.75, 0.77), labels = formato_num) +
+  labs(x = NULL, y = NULL) +
+  tema_slides() +
+  theme(panel.grid.major.x = element_line(colour = "grey92"), panel.spacing.x = unit(14, "pt"),
+        strip.text = element_text(hjust = 1))
+guardar_figura_slides(grafico_enfoques, "busqueda_techo", fraccion = 1, alto = 2.3)
 
 # ---- 6. Política: a quién excluye cada modelo ------------------------------------
 bienestar <- read_csv(file.path(RUTA_NIVEL7, "etapa15_pesos_bienestar.csv"), show_col_types = FALSE) |>
   filter(candidato %in% c("n13_mezcla_final", "n3_logit", "encuesta_corta_8")) |>
   transmute(
     modelo = recode(candidato, n13_mezcla_final = "Mejor modelo",
-                    n3_logit = "Logit, 48 variables", encuesta_corta_8 = "Encuesta corta, 8 variables"),
-    `Cerca de la línea\n(≥ 0,8 de la línea)` = excluidos_cerca_linea * subcobertura,
-    `Pobreza extrema\n(< 0,5 de la línea)` = excluidos_pobreza_extrema * subcobertura,
-    `Intermedios` = subcobertura - `Cerca de la línea\n(≥ 0,8 de la línea)` - `Pobreza extrema\n(< 0,5 de la línea)`,
+                    n3_logit = "Logit, 48", encuesta_corta_8 = "Encuesta corta"),
+    `Cerca` = excluidos_cerca_linea * subcobertura,
+    `Extrema` = excluidos_pobreza_extrema * subcobertura,
+    `Media` = subcobertura - `Cerca` - `Extrema`,
     subcobertura
   ) |>
   pivot_longer(-c(modelo, subcobertura), names_to = "grupo", values_to = "share") |>
   mutate(
-    modelo = factor(modelo, levels = c("Encuesta corta, 8 variables", "Logit, 48 variables", "Mejor modelo")),
-    grupo = factor(grupo, levels = c("Pobreza extrema\n(< 0,5 de la línea)", "Intermedios",
-                                     "Cerca de la línea\n(≥ 0,8 de la línea)"))
+    modelo = factor(modelo, levels = c("Encuesta corta", "Logit, 48", "Mejor modelo")),
+    grupo = factor(grupo, levels = c("Extrema", "Media", "Cerca"))
   )
 
 grafico_excluidos <- ggplot(bienestar, aes(share, modelo, fill = grupo)) +
-  geom_col(width = 0.6) +
+  geom_col(width = 0.65) +
   geom_text(data = distinct(bienestar, modelo, subcobertura),
-            aes(subcobertura, modelo, label = formato_pct1(subcobertura)),
-            inherit.aes = FALSE, hjust = -0.2, size = 3.8) +
+            aes(subcobertura, modelo, label = formato_pct(subcobertura)),
+            inherit.aes = FALSE, hjust = -0.15) +
   scale_fill_manual(values = c(COLOR_ROJO, COLOR_GRIS_MEDIO, COLOR_ACENTO)) +
-  scale_x_continuous(labels = formato_pct, limits = c(0, 0.3)) +
-  labs(x = "Pobres que quedan por fuera (% de los pobres)", y = NULL, fill = NULL) +
-  tema_slides(13) +
-  guides(fill = guide_legend(reverse = TRUE))
-guardar_figura_slides(grafico_excluidos, "excluidos_por_modelo", ancho = 9, alto = 3.6)
+  scale_x_continuous(limits = c(0, 0.32), expand = expansion(mult = c(0, 0))) +
+  coord_cartesian(clip = "off") +
+  labs(x = NULL, y = NULL, fill = NULL) +
+  tema_slides() +
+  theme(axis.text.x = element_blank(), panel.grid = element_blank(),
+        legend.position = "top", legend.justification = "left", legend.location = "plot",
+        legend.margin = margin(0, 0, 0, 0), legend.key.size = unit(11, "pt"))
+guardar_figura_slides(grafico_excluidos, "excluidos_por_modelo", fraccion = 0.6, alto = 1.9)
 
 # ---- 7. Encuesta corta: F1 según el número de preguntas ---------------------------
 frontera <- read_csv(file.path(RUTA_NIVEL7, "frontera_encuesta_corta.csv"), show_col_types = FALSE)
@@ -354,50 +331,94 @@ f1_logit_48 <- leer_f1("leaderboard_interno.csv", "n3_logit", "Candidato", "F1 h
 f1_mejor <- leer_f1("nivel7/etapa18_resumen.csv", "n18_mezcla_n13_limpio")
 referencias <- tibble(
   f1 = c(f1_mejor, f1_logit_48),
-  etiqueta = c(paste0("Mejor modelo (", formato_f1(f1_mejor), ")"),
-               paste0("Logit con 48 variables (", formato_f1(f1_logit_48), ")"))
+  etiqueta = c(paste0("Mejor modelo: ", formato_f1(f1_mejor)),
+               paste0("Logit, 48: ", formato_f1(f1_logit_48)))
 )
-marcados <- frontera |> filter(n_variables %in% c(8))
+marcados <- frontera |> filter(n_variables == 8)
+x_maximo <- max(frontera$n_variables)
 
 grafico_frontera <- ggplot(frontera, aes(n_variables, f1_holdout)) +
   geom_hline(data = referencias, aes(yintercept = f1), linetype = "dashed", colour = COLOR_GRIS) +
-  geom_text(data = referencias, aes(x = c(30, 50), y = f1, label = etiqueta), hjust = 0, vjust = c(-0.6, 1.6),
-            size = 3.6, colour = COLOR_GRIS) +
-  geom_line(colour = COLOR_ACENTO, linewidth = 0.9) +
-  geom_point(colour = COLOR_ACENTO, size = 1.8) +
-  geom_point(data = marcados, colour = COLOR_ROJO, size = 3) +
-  geom_text(data = marcados, aes(label = paste0(n_variables, " preguntas: ", formato_f1(f1_holdout))),
-            hjust = -0.12, vjust = 1.3, size = 3.6, colour = COLOR_ROJO) +
-  scale_y_continuous(labels = formato_num, limits = c(0.47, 0.80)) +
-  labs(x = "Número de preguntas de la encuesta", y = "F1 (Logit)") +
-  tema_slides(14) +
+  geom_text(data = referencias, aes(x = x_maximo, y = f1, label = etiqueta), hjust = 1,
+            vjust = c(-0.4, 1.4), colour = COLOR_GRIS) +
+  geom_line(colour = COLOR_ACENTO, linewidth = 1.1) +
+  geom_point(data = marcados, colour = COLOR_ROJO, size = 3.2) +
+  geom_text(data = marcados, aes(label = paste0("8 preguntas: ", formato_f1(f1_holdout))),
+            hjust = -0.12, vjust = 1.3, colour = COLOR_ROJO) +
+  scale_y_continuous(labels = formato_num, limits = c(0.47, 0.84), breaks = c(0.5, 0.6, 0.7, 0.8)) +
+  labs(x = "Preguntas en la encuesta", y = "F1") +
+  tema_slides() +
   theme(panel.grid.major.y = element_line(colour = "grey92"))
-guardar_figura_slides(grafico_frontera, "frontera_encuesta", ancho = 8, alto = 5.2)
+guardar_figura_slides(grafico_frontera, "frontera_encuesta", fraccion = 0.54, alto = 2.05)
 
-# ---- 8. Curva de cobertura: pobres cubiertos según hogares atendidos --------------
-cobertura <- read_csv(file.path(RUTA_NIVEL7, "etapa15_curva_cobertura.csv"), show_col_types = FALSE) |>
-  mutate(modelo = recode(candidato, n13_mezcla_final = "Mejor modelo",
-                         n3_logit = "Logit, 48 variables", encuesta_corta_8 = "Encuesta corta, 8 variables"),
-         modelo = factor(modelo, levels = c("Mejor modelo", "Logit, 48 variables", "Encuesta corta, 8 variables")))
-puntos_cobertura <- read_csv(file.path(RUTA_NIVEL7, "etapa15_curva_cobertura_puntos.csv"), show_col_types = FALSE) |>
-  mutate(modelo = recode(candidato, n13_mezcla_final = "Mejor modelo",
-                         n3_logit = "Logit, 48 variables", encuesta_corta_8 = "Encuesta corta, 8 variables"),
-         modelo = factor(modelo, levels = levels(cobertura$modelo)))
-tasa_holdout <- 0.2
+# ---- 8. Umbral del modelo final (n18): curva de cobertura y escenarios ----------
+# Los umbrales se eligen con las predicciones OOF (máximo F1 y el umbral más alto
+# que cubre al menos al 90 % de los pobres) y se evalúan en el holdout.
+predicciones_n18 <- arrow::read_parquet(
+  file.path(RUTA_PROCESADOS, "nivel7", "predicciones_n18_mezcla_n13_limpio.parquet")
+) |>
+  filter(tipo %in% c("oof", "holdout")) |>
+  inner_join(transmute(train, id, verdad = as.integer(pobre == "pobre")), by = "id")
+stopifnot(nrow(predicciones_n18) == 131967 + 32993)
 
-grafico_cobertura <- ggplot(cobertura, aes(share_atendida, share_pobres_cubiertos, colour = modelo)) +
+# Precisión, recall y F1 de clasificar como pobre a quien tenga probabilidad >= umbral.
+# Argumentos: verdad (0/1), probabilidad, umbral.
+# Devuelve: tibble de una fila con umbral, f1, precision, recall, filtracion,
+#   subcobertura y share_atendida.
+metricas_umbral <- function(verdad, probabilidad, umbral) {
+  incluido <- probabilidad >= umbral
+  vp <- sum(incluido & verdad == 1)
+  precision <- vp / sum(incluido)
+  recall <- vp / sum(verdad == 1)
+  tibble(umbral = umbral, f1 = 2 * precision * recall / (precision + recall),
+         precision = precision, recall = recall, filtracion = 1 - precision,
+         subcobertura = 1 - recall, share_atendida = mean(incluido))
+}
+
+oof_n18 <- filter(predicciones_n18, tipo == "oof")
+holdout_n18 <- filter(predicciones_n18, tipo == "holdout")
+curva_oof <- map(seq(0.05, 0.80, by = 0.01),
+                 \(u) metricas_umbral(oof_n18$verdad, oof_n18$probabilidad, u)) |>
+  list_rbind()
+umbrales_n18 <- c(
+  "Máximo F1" = curva_oof$umbral[which.max(curva_oof$f1)],
+  "Cobertura >= 90%" = max(curva_oof$umbral[curva_oof$recall >= 0.90])
+)
+escenarios_n18 <- imap(umbrales_n18, \(u, criterio) {
+  metricas_umbral(holdout_n18$verdad, holdout_n18$probabilidad, u) |>
+    mutate(criterio = criterio, .before = 1)
+}) |>
+  list_rbind()
+print(escenarios_n18)
+write_csv(escenarios_n18, file.path(RUTA_NIVEL7, "umbral_n18_escenarios.csv"))
+
+# Curva de cobertura en el holdout: hogares atendidos de mayor a menor probabilidad
+cobertura_n18 <- holdout_n18 |>
+  arrange(desc(probabilidad)) |>
+  mutate(share_atendida = row_number() / n(),
+         share_pobres_cubiertos = cumsum(verdad) / sum(verdad))
+write_csv(
+  cobertura_n18 |> filter(row_number() %% 33 == 0) |> select(share_atendida, share_pobres_cubiertos),
+  file.path(RUTA_NIVEL7, "umbral_n18_curva_cobertura.csv")
+)
+# Las etiquetas van abajo a la derecha de cada punto, escalonadas para no cruzarse
+# con la curva ni entre sí.
+puntos_n18 <- escenarios_n18 |>
+  mutate(etiqueta = paste0("umbral ", formatC(umbral, format = "f", digits = 2, decimal.mark = ",")),
+         x_etiqueta = share_atendida + 0.02,
+         y_etiqueta = if_else(criterio == "Máximo F1", recall - 0.06, recall - 0.03))
+tasa_holdout <- mean(holdout_n18$verdad)
+
+grafico_cobertura <- ggplot(cobertura_n18, aes(share_atendida, share_pobres_cubiertos)) +
   annotate("segment", x = 0, y = 0, xend = tasa_holdout, yend = 1, linetype = "dotted", colour = COLOR_GRIS) +
-  annotate("segment", x = tasa_holdout, y = 1, xend = 1, yend = 1, linetype = "dotted", colour = COLOR_GRIS) +
-  annotate("text", x = 0.215, y = 1.02, label = "focalización perfecta", hjust = 0, size = 3.6,
-           colour = COLOR_GRIS) +
-  geom_line(linewidth = 1) +
-  geom_point(data = puntos_cobertura, size = 3) +
-  scale_colour_manual(values = c(COLOR_ACENTO, COLOR_NEGRO, COLOR_ROJO)) +
-  scale_x_continuous(labels = formato_pct, limits = c(0, 0.6), breaks = seq(0, 0.6, 0.1)) +
-  scale_y_continuous(labels = formato_pct, limits = c(0, 1.04)) +
-  labs(x = "Hogares atendidos (de mayor a menor probabilidad)", y = "Pobres cubiertos",
-       colour = NULL) +
-  tema_slides(14) +
-  theme(panel.grid.major.y = element_line(colour = "grey92"), legend.position = c(0.68, 0.22),
-        legend.background = element_rect(fill = "white", colour = NA))
-guardar_figura_slides(grafico_cobertura, "curva_cobertura_slides", ancho = 8, alto = 5.4)
+  annotate("segment", x = tasa_holdout, y = 1, xend = 0.6, yend = 1, linetype = "dotted", colour = COLOR_GRIS) +
+  geom_line(colour = COLOR_ACENTO, linewidth = 1.2) +
+  geom_point(data = puntos_n18, aes(share_atendida, recall), colour = COLOR_NEGRO, size = 3.2) +
+  geom_text(data = puntos_n18, aes(x_etiqueta, y_etiqueta, label = etiqueta),
+            hjust = 0, vjust = 1) +
+  scale_x_continuous(labels = formato_pct, limits = c(0, 0.6), breaks = c(0, 0.2, 0.4, 0.6)) +
+  scale_y_continuous(labels = formato_pct, limits = c(0, 1.02), breaks = c(0, 0.5, 1)) +
+  labs(x = "Hogares atendidos", y = "Pobres cubiertos") +
+  tema_slides() +
+  theme(panel.grid.major.y = element_line(colour = "grey92"))
+guardar_figura_slides(grafico_cobertura, "curva_cobertura_slides", fraccion = 0.54, alto = 2.2)

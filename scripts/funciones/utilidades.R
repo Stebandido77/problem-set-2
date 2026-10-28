@@ -228,10 +228,19 @@ guardar_submission <- function(ids, clases, algoritmo, especificacion, f1_cv,
       especificacion = especificacion,
       f1_cv = round(f1_cv, 4),
       f1_holdout = round(f1_holdout, 4),
-      top3 = NA_integer_,
-      f1_kaggle = NA_real_  # se llena a mano después de subir a Kaggle
-    )
-    write_csv(registro, ruta_bitacora, append = file.exists(ruta_bitacora))
+      top3 = NA_character_,
+      f1_kaggle = NA_character_,  # F1 público; se llena a mano después de subir a Kaggle
+      subida = "no"
+    ) |>
+      mutate(across(everything(), as.character))
+    # Se une por nombre de columna: la bitácora tiene columnas anotadas a mano
+    # (orden_subida, f1_kaggle_privado, ...) que un append desalinearía.
+    previa <- if (file.exists(ruta_bitacora)) {
+      read_csv(ruta_bitacora, show_col_types = FALSE, col_types = cols(.default = "c"))
+    } else {
+      NULL
+    }
+    write_csv(bind_rows(previa, registro), ruta_bitacora, na = "")
   }
 
   message("Submission guardada: ", nombre_archivo)

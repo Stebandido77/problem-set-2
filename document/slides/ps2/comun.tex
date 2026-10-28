@@ -8,9 +8,9 @@
   {Reconstruir el ingreso de cada persona encuentra al 82\,\% de los hogares pobres}
   \vspace{-0.15cm}
   \begin{columns}[T]
-    \column{0.36\textwidth}\centering \keyfig{0,78}{\begin{tabular}{@{}c@{}}F1 en Kaggle: Público \kagglepublico{} $\cdot$ Privado 0,78\\(\textbf{2.º lugar})\end{tabular}}
+    \column{0.36\textwidth}\centering \keyfig{0,78}{\begin{tabular}{@{}c@{}}F1 en Kaggle: Público \kagglepublico{} $\to$ Privado 0,78\\(\textbf{2.º lugar})\end{tabular}}
     \column{0.30\textwidth}\centering \keyfig{0,782}{F1 en el 20\,\% apartado (holdout)}
-    \column{0.30\textwidth}\centering \keyfig{18}{\begin{tabular}{@{}c@{}}submissions en Kaggle\\(7 algoritmos)\end{tabular}}
+    \column{0.30\textwidth}\centering \keyfig{18}{\begin{tabular}{@{}c@{}}submissions en Kaggle\\(7 algoritmos + mezclas)\end{tabular}}
   \end{columns}
   \vspace{0.15cm}
   \footnotesize
@@ -37,7 +37,9 @@
     pobreza se define por el ingreso, y el ingreso es justo lo que no se puede preguntar
     bien. Nuestra respuesta fue reconstruirlo: estimamos cuánto gana cada persona con
     preguntas sencillas sobre su trabajo, lo sumamos por hogar y lo comparamos con la
-    línea. Con eso quedamos segundos en Kaggle, con un F1 de 0,78 tanto en la tabla pública como en la privada, que es la final. Tres mensajes que
+    línea. Con eso quedamos segundos en Kaggle, con un F1 de 0,77 en la tabla pública y 0,78 en la privada, que es la final.
+    Subimos del público al privado; los equipos en 0,81 en el público bajaron. Elegimos
+    con holdout, no con el leaderboard público. Tres mensajes que
     vamos a sostener: primero, las buenas variables pesaron mucho más que el algoritmo;
     segundo, hay un techo cerca de 0,78 porque muchos pobres están casi en la línea; y
     tercero, los hogares que el modelo deja por fuera están cerca de la línea, no en la

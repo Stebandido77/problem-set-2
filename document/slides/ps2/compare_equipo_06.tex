@@ -93,25 +93,25 @@
 
 \begin{frame}{Con las mismas variables, el boosting gana y Naive Bayes queda último}
   \begin{columns}[c]
-    \column{0.64\textwidth}
-      \centering\scriptsize\renewcommand{\arraystretch}{1.1}\setlength{\tabcolsep}{4pt}
-      \begin{tabular}{@{}lcccc@{}}
+    \column{0.70\textwidth}
+      \centering\scriptsize\renewcommand{\arraystretch}{1.1}\setlength{\tabcolsep}{3pt}
+      \begin{tabular}{@{}lccccc@{}}
         \toprule
-        & \multicolumn{2}{c}{F1} & & \\
-        \cmidrule(lr){2-3}
-        Algoritmo & Validación & Apartado & Filtración & Subcobertura \\
+        & \multicolumn{3}{c}{F1} & & \\
+        \cmidrule(lr){2-4}
+        Algoritmo & Validación & Apartado & Kaggle & Filtración & Subcobertura \\
         \midrule
-        \textbf{Boosting (LightGBM)} & \textbf{0,744} & \textbf{0,749} & 29\,\% & 20\,\% \\
-        Boosting (XGBoost) & 0,740 & 0,746 & 30\,\% & 21\,\% \\
-        Random Forest & 0,726 & 0,734 & 32\,\% & 20\,\% \\
-        Elastic Net & 0,717 & 0,718 & 33\,\% & 22\,\% \\
-        Logit & 0,717 & 0,718 & 33\,\% & 23\,\% \\
-        CART & 0,697 & 0,701 & 34\,\% & 25\,\% \\
-        LPM & 0,690 & 0,691 & 35\,\% & 26\,\% \\
-        Naive Bayes & 0,643 & 0,640 & 44\,\% & 25\,\% \\
+        \textbf{Boosting (LightGBM)} & \textbf{0,744} & \textbf{0,749} & \textbf{0,75} & 29\,\% & 20\,\% \\
+        Boosting (XGBoost) & 0,740 & 0,746 & 0,74 & 30\,\% & 21\,\% \\
+        Random Forest & 0,726 & 0,734 & 0,73 & 32\,\% & 20\,\% \\
+        Elastic Net & 0,717 & 0,718 & 0,72 & 33\,\% & 22\,\% \\
+        Logit & 0,717 & 0,718 & 0,72 & 33\,\% & 23\,\% \\
+        CART & 0,697 & 0,701 & --- & 34\,\% & 25\,\% \\
+        LPM & 0,690 & 0,691 & --- & 35\,\% & 26\,\% \\
+        Naive Bayes & 0,643 & 0,640 & --- & 44\,\% & 25\,\% \\
         \bottomrule
       \end{tabular}
-    \column{0.34\textwidth}
+    \column{0.28\textwidth}
       \footnotesize
       \textbf{Filtración:} reciben sin necesitarlo.
       \textbf{Subcobertura:} pobres por fuera.
@@ -121,7 +121,7 @@
       \end{itemize}
   \end{columns}
   \takeaway{Los más cercanos al boosting: Random Forest y Elastic Net.}
-  \fuente{48 variables, 32.993 hogares apartados (holdout). En Kaggle subimos 18 predicciones de 7 algoritmos. Fuente: views/tablas/comparacion\_algoritmos.csv; stores/submissions/bitacora\_kaggle.csv.}
+  \fuente{48 variables, 32.993 hogares apartados (holdout). Kaggle: F1 privado de la submission de cancha nivelada (XGBoost y Elastic Net: con 8 variables complementarias más); ---: no subido. Fuente: views/tablas/comparacion\_algoritmos.csv; stores/submissions/bitacora\_kaggle.csv.}
   \note{
     \textbf{Qué decir (1 min).} Estos son los siete algoritmos del curso con las mismas
     variables. Como esperábamos, el boosting queda primero y los modelos lineales y Naive

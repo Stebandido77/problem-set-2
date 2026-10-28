@@ -333,7 +333,7 @@
           que el no pobre típico.
       \end{itemize}
   \end{columns}
-  \takeaway{Pesando cada error por su distancia a la línea, el costo está en la subcobertura (11\,\%), no en la filtración (1\,\%).}
+  \takeaway{Pesando por la brecha de pobreza, la subcobertura baja de 18\,\% a 11\,\%: los que se escapan son los menos pobres.}
   \fuente{Datos apartados, umbral 0,36. Cerca: ingreso $\geq 0{,}8$ veces la línea; extrema: $< 0{,}5$. Logit, 48: con 48 variables. Mezcla sin el rediseño (95\,\% del peso final). Fuente: views/tablas/nivel7/etapa15\_pesos\_bienestar.csv.}
   \note{
     \textbf{Qué decir (1 min).} Cada error tiene un costo humano, pero no todos cuestan
@@ -341,13 +341,12 @@
     ellos tienen un ingreso de al menos 80\,\% de la línea. El rojo, la pobreza extrema,
     es la parte más pequeña. Del otro lado, uno de cada cuatro atendidos no es pobre,
     pero están mucho más cerca de la línea que el no pobre típico: su distancia media
-    a la línea es 0,51, frente a 2,83 del no pobre promedio. Si contamos cada error según qué
-    tan lejos está de la línea, la subcobertura baja a 11\,\% y la filtración casi
-    desaparece. Cómo se pondera: cada pobre excluido pesa su brecha,
-    $1 - \text{ingreso}/\text{línea}$, y la subcobertura ponderada es la suma de esas brechas
-    sobre la de todos los pobres; cada no pobre atendido pesa su distancia,
-    $\text{ingreso}/\text{línea} - 1$, sobre la suma de las distancias de todos los no
-    pobres.\\[3pt]
+    a la línea es 0,51, frente a 2,83 del no pobre promedio. Si pesamos a cada pobre
+    excluido por su brecha de pobreza, la subcobertura baja de 18 a 11\,\%. Cómo se
+    pondera: cada pobre excluido pesa su brecha, $1 - \text{ingreso}/\text{línea}$, y la
+    subcobertura ponderada es la suma de esas brechas sobre la de todos los pobres. No
+    mostramos la filtración ponderada porque su denominador incluye hogares muy por encima
+    de la línea y sale pequeña por construcción.\\[3pt]
     \textbf{Pregunta del profesor: ¿el modelo discrimina a algún grupo?}
     \textbf{Respuesta:} Hay más subcobertura en hogares de una o dos personas (34\,\% y
     28\,\%) y en Manizales y Pereira, porque ahí el ingreso depende de una sola persona.
@@ -399,7 +398,7 @@
       \end{itemize}
   \end{columns}
   \takeaway{Lo que se ahorra en la encuesta lo pagan los más pobres.}
-  \fuente{Logit, datos apartados; preguntas elegidas con un algoritmo genético. Fuente: views/tablas/nivel7/frontera\_encuesta\_corta.csv, etapa15\_pesos\_bienestar.csv.}
+  \fuente{Logit, datos apartados; preguntas elegidas con un algoritmo genético. Kaggle: 0,66 con XGBoost y 10 preguntas. Fuente: views/tablas/nivel7/frontera\_encuesta\_corta.csv, etapa15\_pesos\_bienestar.csv.}
   \note{
     \textbf{Qué decir (1 min).} ¿Se puede usar esto con una encuesta corta y barata?
     Las 8 preguntas, elegidas con un algoritmo genético, son: ocupados, horas,

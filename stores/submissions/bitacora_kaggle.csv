@@ -16,7 +16,7 @@ fecha,archivo,nivel,candidato,algoritmo,especificacion,f1_cv,f1_holdout,top3,ord
 2026-10-18,candidatos/n5_xgboost_submuestreo.csv,5,n5_xgboost_submuestreo,Boosting,"Boosting (xgboost) | 5. Desbalance (48 variables) | balanceo: submuestreo | latin hypercube: trees [200, 1000] x tree_depth [3, 8] x learn_rate 10^[-3, -1]",0.7365,0.7468,,9,,,no,
 2026-10-18,candidatos/n5_xgboost_smote.csv,5,n5_xgboost_smote,Boosting,"Boosting (xgboost) | 5. Desbalance (48 variables) | balanceo: smote | latin hypercube: trees [200, 1000] x tree_depth [3, 8] x learn_rate 10^[-3, -1]",0.7395,0.7453,,10,,,no,
 2026-10-18,candidatos/n5_xgboost_pesos.csv,5,n5_xgboost_pesos,Boosting,"Boosting (xgboost) | 5. Desbalance (48 variables) | balanceo: pesos (scale_pos_weight) | latin hypercube: trees [200, 1000] x tree_depth [3, 8] x learn_rate 10^[-3, -1]",0.7394,0.7437,,11,,,no,
-2026-10-18,candidatos/nE_xgboost.csv,E,nE_xgboost,Boosting,"Boosting (xgboost) | E. Encuesta corta (10 variables) | balanceo: ninguno | latin hypercube: trees [200, 1000] x tree_depth [3, 8] x learn_rate 10^[-3, -1]",0.6597,0.6601,,12,,,no,
+2026-10-18,candidatos/nE_xgboost.csv,E,nE_xgboost,Boosting,"Boosting (xgboost) | E. Encuesta corta (10 variables) | balanceo: ninguno | latin hypercube: trees [200, 1000] x tree_depth [3, 8] x learn_rate 10^[-3, -1]",0.6597,0.6601,,12,0.66,0.66,sí,subida a Kaggle con el nombre n8_xgboost; el nombre se confirmó con la tabla de Kaggle
 2026-10-18,candidatos/nE_logit.csv,E,nE_logit,Logit,Logit (logit) | E. Encuesta corta (10 variables) | balanceo: ninguno | sin hiperparámetros,0.6297,0.6309,,13,,,no,
 2026-10-18,candidatos/n2_logit.csv,2,n2_logit,Logit,Logit (logit) | 2. Base (4 variables) | balanceo: ninguno | sin hiperparámetros,0.4635,0.4572,,14,,,no,
 2026-10-18,candidatos/n2_lpm.csv,2,n2_lpm,LPM,LPM | 2. Base (4 variables) | umbral óptimo F1 OOF,0.4625,0.4531,,15,,,no,
@@ -37,4 +37,3 @@ fecha,archivo,nivel,candidato,algoritmo,especificacion,f1_cv,f1_holdout,top3,ord
 2026-10-25,candidatos/n4v_xgboost.csv,4+,n4v_xgboost,Boosting,Boosting (xgboost) | 4+. Nivel 3 + 8 complementarias (56 variables) | modo económico | sin métricas guardadas en el repo,,,,,0.73,0.74,sí,
 2026-10-25,candidatos/n4v_random_forest.csv,4+,n4v_random_forest,Random Forest,Random Forest (random_forest) | 4+. Nivel 3 + 8 complementarias (56 variables) | modo económico | sin métricas guardadas en el repo,,,,,0.72,0.73,sí,
 2026-10-25,candidatos/n4v_elastic_net.csv,4+,n4v_elastic_net,Elastic Net,Elastic Net (elastic_net) | 4+. Nivel 3 + 8 complementarias (56 variables) | modo económico | sin métricas guardadas en el repo,,,,,0.72,0.72,sí,
-2026-10-25,,,n8_xgboost,Boosting,Subida a Kaggle con el nombre n8_xgboost; el CSV no está en el repo,,,,,0.66,0.66,sí,sin archivo en el repo

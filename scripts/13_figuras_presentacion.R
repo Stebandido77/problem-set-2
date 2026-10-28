@@ -197,7 +197,7 @@ grafico_bandas <- ggplot(bandas, aes(banda, f1, fill = banda)) +
   geom_text(aes(label = formato_f1(f1)), vjust = -0.3) +
   scale_fill_manual(values = c(COLOR_ROJO, COLOR_GRIS_MEDIO), guide = "none") +
   coord_cartesian(ylim = c(0.5, 0.93)) +
-  labs(title = "B. Hogares cerca de la línea", x = NULL, y = NULL) +
+  labs(title = "B. Cerca de la línea", x = NULL, y = NULL) +
   tema_slides() +
   theme(axis.text.y = element_blank(), panel.grid = element_blank())
 
@@ -244,11 +244,12 @@ grafico_importancia <- participacion_familias |>
   geom_col(width = 0.7) +
   geom_text(aes(label = formato_pct(share_gain)), hjust = -0.15) +
   scale_fill_manual(values = c(`TRUE` = COLOR_ACENTO, `FALSE` = COLOR_GRIS_MEDIO), guide = "none") +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.2))) +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.3))) +
   coord_cartesian(clip = "off") +
   labs(x = NULL, y = NULL) +
   tema_slides() +
-  theme(axis.text.x = element_blank(), panel.grid = element_blank())
+  theme(axis.text.x = element_blank(), panel.grid = element_blank(),
+        plot.margin = margin(3, 14, 3, 3))
 guardar_figura_slides(grafico_importancia, "importancia_n7_a", fraccion = 0.56, alto = 1.8)
 
 # ---- 5. Búsqueda del techo: todos los enfoques contra la base ----------------------
@@ -329,18 +330,21 @@ guardar_figura_slides(grafico_excluidos, "excluidos_por_modelo", fraccion = 0.6,
 frontera <- read_csv(file.path(RUTA_NIVEL7, "frontera_encuesta_corta.csv"), show_col_types = FALSE)
 f1_logit_48 <- leer_f1("leaderboard_interno.csv", "n3_logit", "Candidato", "F1 holdout")
 f1_mejor <- leer_f1("nivel7/etapa18_resumen.csv", "n18_mezcla_n13_limpio")
+# Las dos etiquetas van sobre su línea punteada: la del mejor modelo a la derecha
+# y la del Logit a la izquierda, donde la curva todavía está por debajo.
 referencias <- tibble(
   f1 = c(f1_mejor, f1_logit_48),
   etiqueta = c(paste0("Mejor modelo: ", formato_f1(f1_mejor)),
-               paste0("Logit, 48: ", formato_f1(f1_logit_48)))
+               paste0("Logit, 48: ", formato_f1(f1_logit_48))),
+  x = c(max(frontera$n_variables), min(frontera$n_variables)),
+  alineacion = c(1, 0)
 )
 marcados <- frontera |> filter(n_variables == 8)
-x_maximo <- max(frontera$n_variables)
 
 grafico_frontera <- ggplot(frontera, aes(n_variables, f1_holdout)) +
   geom_hline(data = referencias, aes(yintercept = f1), linetype = "dashed", colour = COLOR_GRIS) +
-  geom_text(data = referencias, aes(x = x_maximo, y = f1, label = etiqueta), hjust = 1,
-            vjust = c(-0.4, 1.4), colour = COLOR_GRIS) +
+  geom_text(data = referencias, aes(x = x, y = f1, label = etiqueta, hjust = alineacion),
+            vjust = -0.4, colour = COLOR_GRIS) +
   geom_line(colour = COLOR_ACENTO, linewidth = 1.1) +
   geom_point(data = marcados, colour = COLOR_ROJO, size = 3.2) +
   geom_text(data = marcados, aes(label = paste0("8 preguntas: ", formato_f1(f1_holdout))),

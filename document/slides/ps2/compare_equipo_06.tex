@@ -57,7 +57,7 @@
 \section{Comparación de algoritmos}
 %% ============================================================
 \begin{frame}{Cancha nivelada: mismas 48 variables, misma preparación y misma validación}
-  \centering\scriptsize\renewcommand{\arraystretch}{1.12}
+  \centering\scriptsize\renewcommand{\arraystretch}{1.12}\setlength{\tabcolsep}{5pt}
   \begin{tabular}{@{}lllr@{}}
     \toprule
     Algoritmo & Qué se buscó (validación cruzada, 5 bloques) & Elegido & Intentos \\
@@ -140,7 +140,7 @@
 
 \begin{frame}{Random Forest encuentra a los mismos pobres, pero incluye más no pobres}
   \begin{columns}[T]
-    \column{0.50\textwidth}
+    \column{0.54\textwidth}
       \centering\footnotesize\setlength{\tabcolsep}{4pt}
       \begin{tabular}{@{}lcc@{}}
         \toprule
@@ -153,7 +153,7 @@
         F1 & 0,734 & 0,746 \\
         \bottomrule
       \end{tabular}
-    \column{0.46\textwidth}
+    \column{0.42\textwidth}
       \footnotesize
       \textbf{Bosque:} árboles profundos en paralelo, promediados. \textbf{XGBoost:}
       árboles pequeños que corrigen los errores anteriores.
@@ -252,6 +252,7 @@
 \end{frame}
 
 \begin{frame}{Cambiar las variables vale nueve veces más que cambiar el algoritmo}
+  \vspace{-0.2cm}
   \centering\includegraphics[width=\linewidth]{escalera_completa}
   \takeaway{Variables: $+0{,}29$; algoritmo: $+0{,}03$. Saber cuánto gana cada persona vale más.}
   \fuente{F1 en datos apartados, un paso a la vez. Fuente: views/tablas/leaderboard\_interno.csv y views/tablas/nivel7/.}
@@ -308,8 +309,8 @@
 \end{frame}
 
 \begin{frame}{Más complejidad protege mejor a los más pobres, pero cuesta más medirla}
-  \centering\footnotesize\renewcommand{\arraystretch}{1.12}
-  \begin{tabular}{@{}lccc@{}}
+  \centering\footnotesize\renewcommand{\arraystretch}{1.12}\setlength{\tabcolsep}{5pt}
+  \begin{tabular}{@{}lcc>{\centering\arraybackslash}p{3.1cm}@{}}
     \toprule
     & Encuesta corta (Logit) & Logit completo & Mejor modelo \\
     \midrule
@@ -395,7 +396,7 @@
 \end{frame}
 
 \begin{frame}{Apéndice: en validación repetida, ninguna alternativa mejora de forma medible}
-  \centering\scriptsize
+  \centering\scriptsize\setlength{\tabcolsep}{4pt}
   \begin{tabular}{@{}lccc@{}}
     \toprule
     Candidato & F1 validación repetida (EE) & Diferencia vs.\ LightGBM [IC 95\,\%] & F1 apartado [IC 95\,\%] \\

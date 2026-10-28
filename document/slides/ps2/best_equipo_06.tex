@@ -101,9 +101,9 @@
           flecha/.style={-{Latex},andesgray,thick}]
         \node[caja] (p) {En train: ocupación, horas y cotización de cada persona \textbf{y su ingreso}};
         \node[clave,right=0.5cm of p] (m) {Aprende cuánto gana cada persona};
-        \node[caja,below=0.45cm of m] (q) {Estima el ingreso de cada persona del test};
-        \node[caja,left=0.5cm of q] (h) {Suma por hogar, divide por personas y por la línea};
-        \node[clave,below=0.45cm of h] (c) {Decide si el hogar es pobre};
+        \node[caja,below=0.4cm of p] (h) {Suma por hogar, divide por personas y por la línea};
+        \node[caja,right=0.5cm of h] (q) {Estima el ingreso de cada persona del test};
+        \node[clave,below=0.4cm of h] (c) {Decide si el hogar es pobre};
         \draw[flecha] (p) -- (m);
         \draw[flecha] (m) -- (q);
         \draw[flecha] (q) -- (h);
@@ -319,6 +319,7 @@
 \section{Implicaciones de política}
 %% ============================================================
 \begin{frame}{Los pobres que se nos escapan están justo en la línea}
+  \vspace{-0.2cm}
   \begin{columns}[c]
     \column{0.60\textwidth}
       {\footnotesize\textbf{Pobres por fuera, según su ingreso}\par}
@@ -333,7 +334,7 @@
       \end{itemize}
   \end{columns}
   \takeaway{Pesando cada error por su distancia a la línea, el costo está en la subcobertura (11\,\%), no en la filtración (1\,\%).}
-  \fuente{Datos apartados (holdout), umbral 0,36. Cerca: ingreso $\geq 0{,}8$ veces la línea. Extrema: $< 0{,}5$. Logit, 48: Logit con 48 variables. Mezcla sin el rediseño (95\,\% del peso final). Fuente: views/tablas/nivel7/etapa15\_pesos\_bienestar.csv, etapa15\_errores\_subgrupo.csv.}
+  \fuente{Datos apartados, umbral 0,36. Cerca: ingreso $\geq 0{,}8$ veces la línea; extrema: $< 0{,}5$. Logit, 48: con 48 variables. Mezcla sin el rediseño (95\,\% del peso final). Fuente: views/tablas/nivel7/etapa15\_pesos\_bienestar.csv.}
   \note{
     \textbf{Qué decir (1 min).} Cada error tiene un costo humano, pero no todos cuestan
     lo mismo. El modelo deja por fuera al 18\,\% de los pobres, y seis de cada diez de
@@ -367,7 +368,7 @@
       \end{itemize}
   \end{columns}
   \takeaway{Si dejar a un pobre por fuera cuesta más, conviene bajar el umbral.}
-  \fuente{Modelo final (n18). Umbrales elegidos con predicciones sobre datos no vistos (OOF): máximo F1 y cobertura de al menos 90\,\%. Curva y cifras en los datos apartados (holdout); punteada: focalización perfecta. Fuente: views/tablas/nivel7/umbral\_n18\_escenarios.csv, umbral\_n18\_curva\_cobertura.csv.}
+  \fuente{Modelo final (n18), datos apartados. Umbrales elegidos en OOF. Punteada: focalización perfecta. Fuente: views/tablas/nivel7/umbral\_n18\_*.csv.}
   \note{
     \textbf{Qué decir (1 min).} El umbral que maximiza el F1 trata igual los dos errores.
     Pero un gobierno puede pensar que dejar por fuera a una familia pobre es peor que
@@ -493,12 +494,13 @@
           completo. Corregirlo no cambia el F1.
       \end{itemize}
   \end{columns}
+  \vspace{0.4cm}
   \fuente{Validación adversarial. Fuente: views/tablas/nivel7/forense\_resumen.csv, forense\_adversarial.csv, forense\_experimentos.csv.}
   \note{Respaldo para preguntas sobre fuga o sobre diferencias entre train y test.}
 \end{frame}
 
 \begin{frame}{Apéndice: en validación repetida, ninguna alternativa mejora de forma medible}
-  \centering\scriptsize
+  \centering\scriptsize\setlength{\tabcolsep}{4pt}
   \begin{tabular}{@{}lccc@{}}
     \toprule
     Candidato & F1 validación repetida (EE) & Diferencia vs.\ LightGBM [IC 95\,\%] & F1 apartado [IC 95\,\%] \\

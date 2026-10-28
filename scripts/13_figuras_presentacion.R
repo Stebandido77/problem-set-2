@@ -133,17 +133,17 @@ guardar_figura_slides(grafico_correlatos, "correlatos_pobreza", ancho = 9.5, alt
 # ---- 2. Escalera completa: cambios de variables vs. de algoritmo -----------------
 escalera <- tribble(
   ~paso, ~tipo, ~f1,
-  "Todos pobres", "Piso", leer_f1("leaderboard_interno.csv", "n1_todos_pobres", "Candidato", "F1 holdout"),
-  "Logit con 5 variables teóricas", "Piso", leer_f1("leaderboard_interno.csv", "n2_logit", "Candidato", "F1 holdout"),
+  "Declarar pobres a todos", "Piso", leer_f1("leaderboard_interno.csv", "n1_todos_pobres", "Candidato", "F1 holdout"),
+  "Logit con 5 variables de la teoría", "Piso", leer_f1("leaderboard_interno.csv", "n2_logit", "Candidato", "F1 holdout"),
   "Logit + 48 variables desde personas", "Variables", leer_f1("leaderboard_interno.csv", "n3_logit", "Candidato", "F1 holdout"),
-  "XGBoost, mismas 48 variables", "Algoritmo", leer_f1("leaderboard_interno.csv", "n4_xgboost", "Candidato", "F1 holdout"),
-  "LightGBM afinado (50 configuraciones)", "Algoritmo", leer_f1("leaderboard_interno.csv", "n6_lightgbm", "Candidato", "F1 holdout"),
-  "+ variables laborales y de composición", "Variables", leer_f1("nivel7/ablacion_etapa1.csv", "n7_a1_laborales"),
-  "+ auxiliar de ingreso laboral", "Variables", leer_f1("nivel7/ablacion_etapa1.csv", "n7_a4_aux_personas"),
-  "+ auxiliar de ingreso total", "Variables", leer_f1("nivel7/resumen_etapa2.csv", "n7_n6param_a4_total_bag5"),
-  "+ auxiliares por fuente de ingreso", "Variables", leer_f1("nivel7/etapa6_ablacion.csv", "n7_v3_fuentes_bag5"),
-  "+ 1.026 agregados por rol en el hogar", "Variables", leer_f1("nivel7/etapa7_a.csv", "n7_a_agregados_bag5"),
-  "Mezcla con redes y modelo limpio (final)", "Algoritmo", leer_f1("nivel7/etapa18_resumen.csv", "n18_mezcla_n13_limpio")
+  "Boosting (XGBoost), mismas 48", "Algoritmo", leer_f1("leaderboard_interno.csv", "n4_xgboost", "Candidato", "F1 holdout"),
+  "Boosting (LightGBM) afinado", "Algoritmo", leer_f1("leaderboard_interno.csv", "n6_lightgbm", "Candidato", "F1 holdout"),
+  "+ trabajo y composición del hogar", "Variables", leer_f1("nivel7/ablacion_etapa1.csv", "n7_a1_laborales"),
+  "+ ingreso laboral predicho por persona", "Variables", leer_f1("nivel7/ablacion_etapa1.csv", "n7_a4_aux_personas"),
+  "+ ingreso total predicho por persona", "Variables", leer_f1("nivel7/resumen_etapa2.csv", "n7_n6param_a4_total_bag5"),
+  "+ ingreso predicho por fuente", "Variables", leer_f1("nivel7/etapa6_ablacion.csv", "n7_v3_fuentes_bag5"),
+  "+ resúmenes por rol en el hogar", "Variables", leer_f1("nivel7/etapa7_a.csv", "n7_a_agregados_bag5"),
+  "Mezcla final", "Algoritmo", leer_f1("nivel7/etapa18_resumen.csv", "n18_mezcla_n13_limpio")
 ) |>
   mutate(
     delta = f1 - lag(f1),
@@ -164,10 +164,10 @@ grafico_escalera <- ggplot(escalera, aes(f1, paso, colour = tipo)) +
   geom_text(aes(label = formato_f1(f1)), hjust = -0.35, size = 3.8, colour = COLOR_NEGRO) +
   scale_colour_manual(
     values = c("Piso" = COLOR_GRIS_MEDIO, "Variables" = COLOR_ACENTO, "Algoritmo" = COLOR_NEGRO),
-    labels = c("Piso", "Cambia variables", "Cambia algoritmo"), name = NULL
+    labels = c("Punto de partida", "Cambia las variables", "Cambia el algoritmo"), name = NULL
   ) +
   scale_x_continuous(limits = c(0.3, 0.86), breaks = seq(0.3, 0.8, 0.1), labels = formato_num) +
-  labs(x = "F1 en el holdout", y = NULL, colour = NULL) +
+  labs(x = "F1 en datos que el modelo no vio", y = NULL, colour = NULL) +
   tema_slides(13) +
   theme(panel.grid.major.y = element_blank(), legend.position = "top", legend.location = "plot",
         legend.background = element_rect(fill = "white", colour = NA))
@@ -177,10 +177,10 @@ guardar_figura_slides(grafico_escalera, "escalera_completa", ancho = 9, alto = 4
 oraculo <- read_csv(file.path(RUTA_NIVEL7, "techo_oraculo.csv"), show_col_types = FALSE) |>
   mutate(escenario = recode(
     escenario,
-    "auxiliares predichos (modelo final)" = "Predichos\n(lo que\ntenemos)",
-    "laboral observado" = "Laboral\nobservado",
-    "total observado" = "Total\nobservado",
-    "laboral y total observados" = "Laboral y\ntotal\nobservados"
+    "auxiliares predichos (modelo final)" = "Ingreso\npredicho\n(lo que\nusamos)",
+    "laboral observado" = "Ingreso\nlaboral\nreal",
+    "total observado" = "Ingreso\ntotal\nreal",
+    "laboral y total observados" = "Laboral y\ntotal\nreales"
   ), escenario = fct_inorder(escenario))
 
 grafico_oraculo <- ggplot(oraculo, aes(escenario, f1_holdout,
@@ -190,7 +190,7 @@ grafico_oraculo <- ggplot(oraculo, aes(escenario, f1_holdout,
   scale_fill_manual(values = c(`TRUE` = COLOR_ACENTO, `FALSE` = COLOR_GRIS_MEDIO), guide = "none") +
   scale_y_continuous(labels = formato_num) +
   coord_cartesian(ylim = c(0.6, 0.93)) +
-  labs(title = "A. Con el ingreso observado", x = NULL, y = "F1 en holdout") +
+  labs(title = "A. Si viéramos el ingreso", x = NULL, y = "F1") +
   tema_slides(12) +
   theme(panel.grid.major.x = element_blank(), axis.text.x = element_text(size = 8.5, lineheight = 0.9))
 
@@ -209,7 +209,7 @@ grafico_bandas <- ggplot(bandas, aes(banda, f1, fill = banda)) +
   scale_fill_manual(values = c(COLOR_ROJO, COLOR_GRIS_MEDIO), guide = "none") +
   scale_y_continuous(labels = formato_num) +
   coord_cartesian(ylim = c(0.5, 1)) +
-  labs(title = "B. Cerca de la línea", x = NULL, y = "F1 en holdout") +
+  labs(title = "B. Cerca de la línea", x = NULL, y = "F1") +
   tema_slides(12) +
   theme(panel.grid.major.x = element_blank(), axis.text.x = element_text(size = 8.5, lineheight = 0.9))
 
@@ -221,7 +221,7 @@ grafico_curva <- ggplot(curva, aes(hogares_entrenamiento / 1000, f1_holdout)) +
   scale_y_continuous(labels = formato_num) +
   coord_cartesian(ylim = c(0.74, 0.80), xlim = c(25, 140)) +
   scale_x_continuous(breaks = round(curva$hogares_entrenamiento / 1000)) +
-  labs(title = "C. Con más datos", x = "Miles de hogares", y = "F1 en holdout") +
+  labs(title = "C. Con más datos", x = "Miles de hogares", y = "F1") +
   tema_slides(12) +
   theme(panel.grid.major.y = element_line(colour = "grey92"))
 
@@ -235,7 +235,7 @@ if (requireNamespace("patchwork", quietly = TRUE)) {
 # ---- 4. Importancia de variables del modelo base (n7_a, 76 % de la mezcla) ---------
 importancia <- read_csv(file.path(RUTA_NIVEL7, "etapa7_a_importancia.csv"), show_col_types = FALSE) |>
   mutate(familia = case_when(
-    str_detect(variable, "ingreso_pred|laboral_pc|pensiones_pc|_pc_lp_v3|_pc_v3") ~ "Ingreso predicho (auxiliares)",
+    str_detect(variable, "ingreso_pred|laboral_pc|pensiones_pc|_pc_lp_v3|_pc_v3") ~ "Ingreso predicho por persona",
     str_detect(variable, "arriendo|tenencia|vivienda|cuartos|dormitorios") ~ "Vivienda y arriendo",
     str_detect(variable, "^ag_") ~ "Agregados por rol",
     TRUE ~ "Demografía, trabajo y ubicación"
@@ -269,10 +269,10 @@ top_importancia <- importancia |>
 grafico_importancia <- ggplot(top_importancia, aes(share_gain, nombre, fill = familia)) +
   geom_col(width = 0.7) +
   geom_text(aes(label = formato_pct1(share_gain)), hjust = -0.15, size = 3.6) +
-  scale_fill_manual(values = c("Ingreso predicho (auxiliares)" = COLOR_ACENTO,
+  scale_fill_manual(values = c("Ingreso predicho por persona" = COLOR_ACENTO,
                                "Vivienda y arriendo" = COLOR_GRIS)) +
   scale_x_continuous(labels = formato_pct, expand = expansion(mult = c(0, 0.22))) +
-  labs(x = "Participación en la ganancia de los árboles", y = NULL, fill = NULL) +
+  labs(x = "Peso en las decisiones del modelo (% de la ganancia)", y = NULL, fill = NULL) +
   tema_slides(13) +
   theme(legend.position = c(0.75, 0.3), legend.direction = "vertical",
         legend.background = element_rect(fill = "white", colour = NA))
@@ -286,21 +286,21 @@ emd_holdout <- resumen16$mde_holdout[resumen16$candidato == "n13_mezcla_final"]
 enfoques <- tribble(
   ~enfoque, ~f1,
   "Rediseño desde cero", leer_f1("nivel7/etapa18_resumen.csv", "n18_limpio"),
-  "Cuantiles del ingreso", leer_f1("nivel7/etapa12_resumen.csv", "n12_cuantiles_directo"),
-  "DeepSets (red)", leer_f1("nivel7/etapa12_resumen.csv", "n12_conjuntos_bag3"),
-  "GA-bagging", leer_f1("nivel7/etapa9_candidatos.csv", "n9_ga_bagging"),
-  "AutoGluon, base cruda", leer_f1("nivel7/etapa12_resumen.csv", "n12_autogluon_a"),
-  "TabM (red)", leer_f1("nivel7/etapa10_candidatos.csv", "n10_tabm_bag3"),
-  "ExtraTrees + abejas", leer_f1("nivel7/etapa7_b.csv", "n7_b2_extratrees_abc_agr"),
-  "GPBoost por ciudad", leer_f1("nivel7/etapa12_resumen.csv", "n12_gpboost_dominio_1s"),
-  "RealMLP (red)", leer_f1("nivel7/etapa10_candidatos.csv", "n10_realmlp_bag5"),
-  "EBM", leer_f1("nivel7/etapa15_resumen.csv", "n15_ebm_top60_s0"),
-  "AutoGluon, nuestra base", leer_f1("nivel7/etapa12_resumen.csv", "n12_autogluon_b"),
-  "Auxiliares con Optuna", leer_f1("nivel7/etapa8_candidatos.csv", "n8_aux_tuneados_bag5"),
-  "Programación genética", leer_f1("nivel7/etapa14_resumen.csv", "n14_a_gp_lgb_s0"),
+  "Predecir rangos de ingreso", leer_f1("nivel7/etapa12_resumen.csv", "n12_cuantiles_directo"),
+  "Red sobre las personas del hogar", leer_f1("nivel7/etapa12_resumen.csv", "n12_conjuntos_bag3"),
+  "Variables elegidas por algoritmo genético", leer_f1("nivel7/etapa9_candidatos.csv", "n9_ga_bagging"),
+  "Modelo automático, base cruda", leer_f1("nivel7/etapa12_resumen.csv", "n12_autogluon_a"),
+  "Red neuronal (TabM)", leer_f1("nivel7/etapa10_candidatos.csv", "n10_tabm_bag3"),
+  "Árboles muy aleatorios", leer_f1("nivel7/etapa7_b.csv", "n7_b2_extratrees_abc_agr"),
+  "Efecto propio de cada ciudad", leer_f1("nivel7/etapa12_resumen.csv", "n12_gpboost_dominio_1s"),
+  "Red neuronal (RealMLP)", leer_f1("nivel7/etapa10_candidatos.csv", "n10_realmlp_bag5"),
+  "Boosting interpretable (EBM)", leer_f1("nivel7/etapa15_resumen.csv", "n15_ebm_top60_s0"),
+  "Modelo automático, nuestras variables", leer_f1("nivel7/etapa12_resumen.csv", "n12_autogluon_b"),
+  "Modelo de ingreso reafinado", leer_f1("nivel7/etapa8_candidatos.csv", "n8_aux_tuneados_bag5"),
+  "Variables inventadas por computador", leer_f1("nivel7/etapa14_resumen.csv", "n14_a_gp_lgb_s0"),
   "CatBoost", leer_f1("nivel7/etapa7_b.csv", "n7_b3_catboost_agr"),
   "Vecinos cercanos", leer_f1("nivel7/etapa16_fase1_resumen.csv", "A + KNN (bag5)"),
-  "Pseudoetiquetado", leer_f1("nivel7/etapa15_resumen.csv", "n15_pseudo_s0"),
+  "Aprender también del test", leer_f1("nivel7/etapa15_resumen.csv", "n15_pseudo_s0"),
   "Mezcla final", leer_f1("nivel7/etapa18_resumen.csv", "n18_mezcla_n13_limpio")
 ) |>
   mutate(enfoque = fct_reorder(enfoque, f1), es_final = enfoque == "Mezcla final")
@@ -314,9 +314,9 @@ grafico_enfoques <- ggplot(enfoques, aes(f1, enfoque, colour = es_final)) +
   geom_text(aes(label = formato_f1(f1)), hjust = 1.35, size = 3.4, colour = COLOR_GRIS) +
   scale_colour_manual(values = c(`FALSE` = COLOR_NEGRO, `TRUE` = COLOR_ACENTO), guide = "none") +
   scale_x_continuous(limits = c(0.742, 0.785), breaks = seq(0.75, 0.78, 0.01), labels = formato_num) +
-  labs(x = "F1 en el holdout", y = NULL) +
+  labs(x = "F1 en datos no vistos", y = NULL) +
   tema_slides(13)
-guardar_figura_slides(grafico_enfoques, "busqueda_techo", ancho = 6.4, alto = 4.6, escala = 0.66)
+guardar_figura_slides(grafico_enfoques, "busqueda_techo", ancho = 7.6, alto = 4.6, escala = 0.66)
 
 # ---- 6. Política: a quién excluye cada modelo ------------------------------------
 bienestar <- read_csv(file.path(RUTA_NIVEL7, "etapa15_pesos_bienestar.csv"), show_col_types = FALSE) |>
@@ -343,7 +343,7 @@ grafico_excluidos <- ggplot(bienestar, aes(share, modelo, fill = grupo)) +
             inherit.aes = FALSE, hjust = -0.2, size = 3.8) +
   scale_fill_manual(values = c(COLOR_ROJO, COLOR_GRIS_MEDIO, COLOR_ACENTO)) +
   scale_x_continuous(labels = formato_pct, limits = c(0, 0.3)) +
-  labs(x = "Pobres excluidos (% de los pobres del holdout)", y = NULL, fill = NULL) +
+  labs(x = "Pobres que quedan por fuera (% de los pobres)", y = NULL, fill = NULL) +
   tema_slides(13) +
   guides(fill = guide_legend(reverse = TRUE))
 guardar_figura_slides(grafico_excluidos, "excluidos_por_modelo", ancho = 9, alto = 3.6)
@@ -357,7 +357,7 @@ referencias <- tibble(
   etiqueta = c(paste0("Mejor modelo (", formato_f1(f1_mejor), ")"),
                paste0("Logit con 48 variables (", formato_f1(f1_logit_48), ")"))
 )
-marcados <- frontera |> filter(n_variables %in% c(5, 8, 15))
+marcados <- frontera |> filter(n_variables %in% c(8))
 
 grafico_frontera <- ggplot(frontera, aes(n_variables, f1_holdout)) +
   geom_hline(data = referencias, aes(yintercept = f1), linetype = "dashed", colour = COLOR_GRIS) +
@@ -369,7 +369,7 @@ grafico_frontera <- ggplot(frontera, aes(n_variables, f1_holdout)) +
   geom_text(data = marcados, aes(label = paste0(n_variables, " preguntas: ", formato_f1(f1_holdout))),
             hjust = -0.12, vjust = 1.3, size = 3.6, colour = COLOR_ROJO) +
   scale_y_continuous(labels = formato_num, limits = c(0.47, 0.80)) +
-  labs(x = "Número de variables de la encuesta", y = "F1 en holdout (Logit)") +
+  labs(x = "Número de preguntas de la encuesta", y = "F1 (Logit)") +
   tema_slides(14) +
   theme(panel.grid.major.y = element_line(colour = "grey92"))
 guardar_figura_slides(grafico_frontera, "frontera_encuesta", ancho = 8, alto = 5.2)

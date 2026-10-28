@@ -28,12 +28,15 @@
   \vspace{0.3cm}\insertslideintonotes{0.25}\par\vspace{0.2cm}
   \begin{minipage}{0.95\textwidth}\insertnote\end{minipage}}
 
-% F1 público de Kaggle del mejor modelo: pendiente hasta subir el CSV final.
-\newcommand{\kagglepublico}{\textcolor{andesred}{[pendiente]}\xspace}
+% F1 público de Kaggle del mejor modelo. Vacío: la Overview muestra solo el F1 final
+% (privado). Para mostrarlo, escribir el valor entre las llaves: \def\kagglepublico{0,78}.
+\def\kagglepublico{}
 
 % Tabla pequeña con letra reducida
 \newcommand{\tablachica}{\footnotesize\renewcommand{\arraystretch}{1.12}}
 % Fuente de una figura o tabla, al pie
 \newcommand{\fuente}[1]{\par\vspace{2pt}{\tiny\color{andesgray}#1\par}}
-% Títulos sin cortar palabras con guion
-\addtobeamertemplate{frametitle}{\hyphenpenalty=10000\exhyphenpenalty=10000\raggedright}{}
+% Títulos sin cortar palabras con guion: se hace dentro de la plantilla del título
+% (beamerthemeUniandes.sty), porque el minipage del título reinicia la alineación.
+% Cajas de los diagramas sin guiones
+\tikzset{every node/.append style={execute at begin node={\hyphenpenalty=10000\exhyphenpenalty=10000}}}

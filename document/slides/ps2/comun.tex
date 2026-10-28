@@ -5,75 +5,77 @@
 % ---- Best Model Overview (diapositiva obligatoria, primera de cada deck) ----
 \newcommand{\diapositivaoverview}{%
 \begin{frame}{Best Model Overview}
-  {Ingreso predicho por persona + LightGBM \;|\; Equipo 06, MECA 4107}
-  \vspace{-0.1cm}
+  {Reconstruir el ingreso de cada persona encuentra al 82\,\% de los hogares pobres}
+  \vspace{-0.15cm}
   \begin{columns}[T]
-    \column{0.37\textwidth}\centering \keyfig{\kagglepublico}{F1 público en Kaggle}
-    \column{0.30\textwidth}\centering \keyfig{0,782}{F1 en holdout, IC 95\,\% [0,774; 0,789]}
-    \column{0.30\textwidth}\centering \keyfig{0,776}{F1 en CV repetida (15 evaluaciones)}
+    \column{0.36\textwidth}\centering \keyfig{0,78}{F1 final en Kaggle: \textbf{2.º lugar}}
+    \ifx\kagglepublico\empty\else{\scriptsize\color{andesgray} F1 público: \kagglepublico\par}\fi
+    \column{0.30\textwidth}\centering \keyfig{0,782}{F1 en el 20\,\% apartado (holdout)}
+    \column{0.30\textwidth}\centering \keyfig{35}{submissions, 7 algoritmos}
   \end{columns}
   \vspace{0.15cm}
   \footnotesize
   \begin{columns}[T]
-    \column{0.49\textwidth}
-      \textbf{Especificación}
-      \begin{itemize}
-        \item \textbf{Variable clave:} el ingreso de cada persona, predicho con lo que el test
-          sí trae y sumado al hogar (1.324 variables en total).
-        \item \textbf{Algoritmo:} LightGBM (76\,\%) mezclado con dos redes (19\,\%) y un
-          rediseño desde cero (5\,\%); pesos elegidos fuera de muestra.
-        \item \textbf{Regla:} pobre si $P(\text{pobre}) \geq 0{,}36$.
-      \end{itemize}
-    \column{0.49\textwidth}
-      \textbf{Mensajes}
+    \column{0.50\textwidth}
+      \textbf{El modelo}
       \begin{enumerate}
-        \item Las variables aportaron \textbf{9 veces más} F1 que los algoritmos.
-        \item El techo (${\approx}\,0{,}78$) viene sobre todo de la información que falta.
-        \item Excluye al 18\,\% de los pobres, casi todos cerca de la línea.
+        \item Estimamos el ingreso de cada persona con lo que el test sí trae: ocupación,
+          horas, cotización.
+        \item Lo sumamos por hogar y lo comparamos con la línea.
+        \item Un boosting de árboles (LightGBM) decide: pobre si $P \geq 0{,}36$.
+      \end{enumerate}
+    \column{0.48\textwidth}
+      \textbf{Lo que encontramos}
+      \begin{enumerate}
+        \item Saber cuánto gana cada persona vale más que el algoritmo.
+        \item Nadie pasa de 0,78: un tercio de los pobres está casi en la línea.
+        \item Los excluidos están cerca de la línea.
       \end{enumerate}
   \end{columns}
-  \fuente{F1: media armónica de precisión y recall de la clase pobre. Holdout: 20\,\% del train nunca usado para decidir. Fuente: views/tablas/nivel7/etapa18\_resumen.csv.}
+  \fuente{Kaggle: tabla final (privada). LightGBM pesa 76\,\% de una mezcla con dos redes y un rediseño. Fuente: views/tablas/nivel7/etapa18\_resumen.csv.}
   \note{
-    \textbf{Qué decir (1 min).} Nuestro mejor modelo clasifica hogares pobres con F1 de
-    0,782 en datos que nunca usamos para decidir. La pieza clave no es el algoritmo sino
-    una variable: predecimos cuánto gana cada persona con lo que el test sí trae
-    (ocupación, horas, cotización) y lo sumamos al hogar. Tres mensajes: las variables
-    pesan 9 veces más que el algoritmo, hay un techo que viene de los datos y los errores
-    se concentran cerca de la línea.\\[3pt]
-    \textbf{Pregunta difícil: ¿por qué una mezcla y no un solo modelo?} La mezcla gana
-    +0,0007 en CV repetida frente a LightGBM solo. El IC ingenuo [+0,0002; +0,0012] excluye
-    cero; el corregido por dependencia entre folds no. Es una mejora marginal: en la
-    práctica LightGBM solo rinde igual.
+    \textbf{Qué decir (1 min).} El gobierno quiere encontrar a los hogares pobres, pero la
+    pobreza se define por el ingreso, y el ingreso es justo lo que no se puede preguntar
+    bien. Nuestra respuesta fue reconstruirlo: estimamos cuánto gana cada persona con
+    preguntas sencillas sobre su trabajo, lo sumamos por hogar y lo comparamos con la
+    línea. Con eso quedamos segundos en Kaggle, con un F1 final de 0,78. Tres mensajes que
+    vamos a sostener: primero, las buenas variables pesaron mucho más que el algoritmo;
+    segundo, hay un techo cerca de 0,78 porque muchos pobres están casi en la línea; y
+    tercero, los hogares que el modelo deja por fuera están cerca de la línea, no en la
+    pobreza extrema.\\[3pt]
+    \textbf{Pregunta del profesor: ¿por qué una mezcla y no un solo modelo?}
+    \textbf{Respuesta:} La mezcla gana menos de una milésima frente al LightGBM solo, y esa
+    ventaja no sobrevive a una prueba más estricta. La subimos porque cumplió la regla que
+    fijamos antes, pero a una agencia le recomendaríamos el LightGBM solo.
   }
 \end{frame}}
 
 % ---- Glosario (apéndice de ambos decks, dos diapositivas) ----
 \newcommand{\filaglosario}[2]{\textbf{#1} & #2 \\}
 \newcommand{\diapositivaglosario}{%
-\begin{frame}{Glosario (1/2): métricas y errores}
+\begin{frame}{Glosario (1/2): cómo medimos los errores}
   \footnotesize\renewcommand{\arraystretch}{1.25}
-  \begin{tabular}{@{}p{0.2\textwidth}p{0.76\textwidth}@{}}
+  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.2\textwidth}>{\raggedright\arraybackslash}p{0.76\textwidth}@{}}
     \toprule
-    \filaglosario{Precisión}{De los hogares que el programa atiende, qué parte es pobre. $1-$precisión $=$ \textbf{filtración}: no pobres que reciben el beneficio.}
-    \filaglosario{Recall}{De los hogares pobres, qué parte atiende el programa. $1-$recall $=$ \textbf{subcobertura}: pobres excluidos.}
-    \filaglosario{F1}{Media armónica de precisión y recall: solo es alta si ambas lo son. No premia a los no pobres bien clasificados.}
-    \filaglosario{Umbral}{Probabilidad a partir de la cual un hogar se clasifica como pobre. Bajarlo cubre más pobres a cambio de más filtración.}
-    \filaglosario{IC 95\,\%}{Rango de valores compatibles con los datos. Si el IC de una diferencia incluye cero, no podemos afirmar que haya mejora.}
-    \filaglosario{Efecto mínimo detectable}{La mejora más pequeña que el diseño detectaría con probabilidad 0,8.}
+    \filaglosario{Precisión}{De los hogares que el programa atiende, qué parte es pobre.}
+    \filaglosario{Filtración}{$1-$precisión: hogares no pobres que reciben el subsidio sin necesitarlo.}
+    \filaglosario{Recall}{De los hogares pobres, qué parte atiende el programa.}
+    \filaglosario{Subcobertura}{$1-$recall: hogares pobres que se quedan por fuera.}
+    \filaglosario{F1}{Promedio (armónico) de precisión y recall: solo es alto si ambos lo son.}
+    \filaglosario{Umbral}{Probabilidad desde la que un hogar se declara pobre. Bajarlo cubre más pobres a cambio de más filtración.}
     \bottomrule
   \end{tabular}
   \note{Glosario de apoyo; se muestra solo si lo preguntan.}
 \end{frame}
-\begin{frame}{Glosario (2/2): validación y variables}
+\begin{frame}{Glosario (2/2): cómo validamos}
   \footnotesize\renewcommand{\arraystretch}{1.25}
-  \begin{tabular}{@{}p{0.2\textwidth}p{0.76\textwidth}@{}}
+  \begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.72\textwidth}@{}}
     \toprule
-    \filaglosario{Holdout}{20\,\% del train (32.993 hogares) apartado al inicio; solo se usa para medir, nunca para decidir.}
-    \filaglosario{Validación cruzada}{El 80\,\% restante se parte en 5 bloques (folds): se entrena con 4 y se evalúa en el quinto, rotando.}
-    \filaglosario{Fuera de fold (OOF)}{La predicción de cada hogar hecha por un modelo que no lo vio. Con ella se eligen umbral, pesos e hiperparámetros.}
-    \filaglosario{CV repetida}{La validación cruzada repetida con 3 particiones nuevas: 15 evaluaciones para medir la variabilidad.}
-    \filaglosario{Auxiliar de ingreso}{Modelo que predice el ingreso de cada persona con variables que el test sí trae; sumado al hogar, entra como variable.}
-    \filaglosario{OOF anidada}{El auxiliar que alimenta a un hogar no vio ese hogar ni su fold de validación: así no se filtra la respuesta.}
+    \filaglosario{Datos apartados (holdout)}{20\,\% del train (32.993 hogares) separado al inicio; solo sirve para medir, nunca para decidir.}
+    \filaglosario{Validación cruzada}{El 80\,\% restante se parte en 5 bloques: se entrena con 4 y se evalúa en el quinto, rotando.}
+    \filaglosario{Predicción sobre datos no vistos (OOF)}{La predicción de cada hogar hecha por un modelo que no lo vio. Con ella elegimos umbral, pesos e hiperparámetros.}
+    \filaglosario{Modelo de ingreso por persona}{Estima cuánto gana cada persona con lo que el test sí trae; sumado al hogar, entra como variable. El que alimenta a un hogar nunca vio ese hogar.}
+    \filaglosario{Diferencia más pequeña que podemos medir}{Con 32.993 hogares, mejoras menores a ${\approx}\,0{,}0025$ de F1 no se distinguen del ruido.}
     \bottomrule
   \end{tabular}
   \note{Glosario de apoyo; se muestra solo si lo preguntan.}
